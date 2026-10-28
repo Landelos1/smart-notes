@@ -1,0 +1,37 @@
+package com.ldd.initialization.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.ldd.initialization.domain.NoteLike;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Note like mapper.
+ */
+@Mapper
+public interface NoteLikeMapper extends BaseMapper<NoteLike> {
+
+    @Select("SELECT * FROM t_note_like WHERE user_id = #{userId} AND note_id = #{noteId} LIMIT 1")
+    NoteLike selectByUserIdAndNoteId(@Param("userId") Long userId,
+                                     @Param("noteId") Long noteId);
+
+    @Select("""
+        WITH days AS (
+          SELECT date_trunc('day', now()) - (interval '1 day' * gs) AS day_start
+          FROM generate_series(0, #{days} - 1) AS gs
+        )
+        SELECT to_char(day_start, 'YYYY-MM-DD') AS period,
+               COALESCE(COUNT(nl.id), 0) AS count
+        FROM days d
+        LEFT JOIN t_note_like nl
+          ON nl.create_time >= d.day_start
+         AND nl.create_time < d.day_start + interval '1 day'
+        GROUP BY day_start
+        ORDER BY day_start
+        """)
+    List<Map<String, Object>> countDailyLikes(@Param("days") Integer days);
+}
