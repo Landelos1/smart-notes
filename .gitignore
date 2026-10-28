@@ -1,0 +1,40 @@
+# Frontend source is intentionally excluded from this backend repository.
+/note-vue/
+/art-design-pro/
+
+# IDE and operating-system files.
+/.idea/
+**/.idea/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+
+# Build output and dependencies.
+**/target/
+**/build/
+**/dist/
+**/node_modules/
+/out/
+
+# Local configuration and credentials.
+**/.env
+**/.env.*
+/initialization-note-side/src/main/resources/application.yml
+/initialization-note-side/src/main/resources/application-*.yml
+!/initialization-note-side/src/main/resources/application-example.yml
+!/initialization-note-side/src/main/resources/application-example.yaml
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+
+# Machine-specific reload configuration.
+/initialization-note-side/src/main/resources/rebel.xml
+
+# Logs and local data.
+*.log
+/logs/
+**/data/

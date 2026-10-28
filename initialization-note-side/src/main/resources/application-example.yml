@@ -1,0 +1,110 @@
+server:
+  port: 8889
+
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres?sslmode=disable}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:CHANGE_ME}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:2}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: 30000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 200MB
+
+sa-token:
+  token-name: Authorization
+  token-prefix: Bearer
+  jwt-secret-key: ${JWT_SECRET_KEY:CHANGE_ME_WITH_A_RANDOM_SECRET}
+  timeout: 12592000
+
+dromara:
+  x-file-storage:
+    default-platform: local-plus
+    local-plus:
+      - platform: local-plus
+        enable-storage: true
+        enable-access: true
+        domain: http://localhost:8889/file/
+        base-path: local-plus/
+        path-patterns: /file/**
+        storage-path: ./data/uploads/
+    aliyun-oss:
+      - platform: aliyun-oss
+        enable-storage: false
+        domain: ${OSS_DOMAIN:}
+        access-key: ${OSS_ACCESS_KEY:}
+        secret-key: ${OSS_ACCESS_SECRET:}
+        bucket-name: ${OSS_BUCKET:}
+        end-point: ${OSS_ENDPOINT:oss-cn-beijing.aliyuncs.com}
+        base-path: ${OSS_BASE_PATH:uploads/}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: ${AI_CHAT_BASE_URL:https://api.deepseek.com}
+      api-key: ${AI_CHAT_API_KEY:YOUR_DEEPSEEK_API_KEY}
+      model-name: ${AI_CHAT_MODEL:deepseek-chat}
+      log-requests: false
+      log-responses: false
+    streaming-chat-model:
+      base-url: ${AI_CHAT_BASE_URL:https://api.deepseek.com}
+      api-key: ${AI_CHAT_API_KEY:YOUR_DEEPSEEK_API_KEY}
+      model-name: ${AI_CHAT_MODEL:deepseek-chat}
+      log-requests: false
+      log-responses: false
+    embedding-model:
+      base-url: ${AI_EMBEDDING_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      api-key: ${AI_EMBEDDING_API_KEY:YOUR_DASHSCOPE_API_KEY}
+      model-name: ${AI_EMBEDDING_MODEL:text-embedding-v3}
+      log-requests: false
+      log-responses: false
+      max-segments-per-batch: 10
+
+chat:
+  stream:
+    base-delay-ms: 50
+    max-delay-ms: 200
+    chunk-size-threshold: 10
+    rate-limit-window: 20
+    window-delay-ms: 10
+    backpressure-buffer-size: 100
+    content-delay-factor: 2.0
+    index-delay-reduction: 5
+    enable-rate-control: true
+    enable-adaptive-delay: true
+    enable-smooth-transmission: true
+    enable-logging: false
+
+alipay:
+  app-id: ${ALIPAY_APP_ID:}
+  private-key: ${ALIPAY_PRIVATE_KEY:}
+  alipay-public-key: ${ALIPAY_PUBLIC_KEY:}
+  gateway-url: ${ALIPAY_GATEWAY_URL:https://openapi-sandbox.dl.alipaydev.com/gateway.do}
+  return-url: ${ALIPAY_RETURN_URL:http://localhost:3000/payment/result}
+  notify-url: ${ALIPAY_NOTIFY_URL:http://localhost:8889/api/payment/alipay/notify}
+  sign-type: RSA2
+  charset: UTF-8
+  format: json
