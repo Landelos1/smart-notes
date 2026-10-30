@@ -12,28 +12,34 @@
 - 原有 `documents` 数据会保留，`metadata` 从 json 转为 jsonb；已有表还会补上业务字段、UUID 默认值及查询索引。
 - 不导入原项目的私人账号、文件、向量或 API 密钥，不预设管理员账号和会员套餐价格。
 
-当前本机后端连接的是 `localhost:15432/postgres`，容器为 `note-postgres`。请以实际 application.yml 的 datasource 配置为准。
+以实际 `application.yml` 的 datasource 配置为准。原生 PostgreSQL 默认端口为 `5432`，已有 Docker 容器也可能映射为 `15432`。本项目使用 PostgreSQL，不需要选择 MySQL 数据源。
 
 ## 在 IDEA 执行
 
 1. 打开 `deploy/init-local.sql`。
-2. 在右侧 Database 窗口确认数据源连接的是 PostgreSQL：主机 `localhost`、端口 `15432`、数据库 `postgres`、用户 `postgres`，密码使用后端已配置的密码。
+2. 在右侧 Database 窗口确认数据源连接的是目标 PostgreSQL，主机、端口、库名、用户名和密码与后端配置一致。
 3. 给 SQL 文件选择这个数据源，并选择 `public` schema。不要选择 MySQL 数据源。
 4. `Ctrl+A` 全选文件内容，点击执行按钮或按 `Ctrl+Enter`；如果出现语句选择窗口，选择执行全部语句。必须包含开头的 `BEGIN` 和末尾的 `COMMIT`。
 5. 等待执行结束。末尾的查询应显示 33 张表。如果中途报错，先在同一控制台执行 `ROLLBACK;`，处理错误后重新执行整个文件。
-6. 刷新 Database 数据源，展开 `postgres → schemas → public → tables`。
+6. 刷新 Database 数据源，展开 `目标数据库 → schemas → public → tables`。
 
 ## 也可在 PowerShell 导入
 
-确保 Docker Desktop 已启动，然后依次执行：
+使用本机原生客户端时，在仓库根目录执行；用户名、端口、数据库名按实际环境调整：
 
 ```powershell
-docker --context desktop-linux cp "E:\CZB_aiProject\initialization-note-side\deploy\init-local.sql" note-postgres:/tmp/note-init-local.sql
+psql -h 127.0.0.1 -p 5432 -U postgres -d smart_notes -W -v ON_ERROR_STOP=1 -f initialization-note-side/deploy/init-local.sql
+```
+
+如果客户端是容器包装命令，它不能直接读取 Windows 路径，需要先复制 SQL。下面以已运行的 `note-postgres` 容器和 `postgres` 数据库为例，在仓库根目录依次执行：
+
+```powershell
+docker --context desktop-linux cp ./initialization-note-side/deploy/init-local.sql note-postgres:/tmp/note-init-local.sql
 docker --context desktop-linux exec note-postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/note-init-local.sql
 ```
 
 第一条执行成功后再执行第二条。第二条应以 `COMMIT` 和 33 行表名结束。
-本机的 psql 包装命令在容器里运行，因此不能直接用 `psql -f E:\...` 读取 Windows 文件；上面先将 SQL 复制进容器。
+Docker context、容器名和数据库名都以自己的部署为准，使用原生服务无需执行 Docker 命令。
 
 ## 导入后的检查
 
@@ -54,12 +60,16 @@ SELECT id, title, notebook_id, user_id FROM public.t_note ORDER BY id;
 
 重启 IDEA 中的后端，保留前端 dev 服务。浏览器刷新后：
 
-1. 注册普通用户，再登录；手机号唯一，不需要手工插入用户或密码。
+1. 注册普通用户，再登录；同一手机号在同一角色内唯一，不需要手工插入用户或密码。普通用户和管理员可共用手机号。
 2. 新建一个笔记本，在里面新建笔记，编辑内容并保存。
 3. 刷新页面确认笔记仍然存在，检查上面三张业务表是否出现对应数据。
 4. 测试标签和删除/回收站；遇到错误时查看 IDEA 后端控制台的异常及 SQL。
 
-建表完成不等于所有外部功能均已可用。文件上传依赖有效的 OSS 配置，AI 功能依赖模型服务与密钥；会员套餐表初始为空，支付还依赖商户配置。建议先完成用户和笔记流程，再逐项配置这些功能。
+建表完成不等于所有外部功能均已可用。文件上传需要有效的本地存储或 OSS 配置，AI 功能依赖模型服务与密钥；会员套餐表初始为空，支付还依赖商户配置。先完成用户和笔记流程，再逐项配置。首次管理员启用步骤见[项目 README](../../README.md#6-注册与首个管理员启用)。
+
+## 已有数据库迁移
+
+已有数据库先备份。旧库手机号全局唯一时执行 [20261030_account_role_uniqueness.sql](migrations/20261030_account_role_uniqueness.sql)，将约束调整为 `(phone, role_type)`，不同角色可共用手机号，同角色重复仍被拒绝。迁移支持重复执行；若已有同角色重复数据，先核查数据再迁移，不要直接删除业务账号。
 
 ## 已完成的验证
 

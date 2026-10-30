@@ -1,150 +1,206 @@
-# 智能笔记
+# 智能笔记 · Smart Notes
 
-一个面向个人知识管理与协作的 AI 笔记项目。用户可以整理 Markdown 笔记和文档，把个人或共享知识库接入 AI 问答，也可以通过团队空间共同维护文档。
+面向个人知识整理与团队资料协作的 AI 笔记项目，包含用户端、管理端、Java 后端、数据库初始化与迁移脚本、接口说明和构建检查。
 
-## 项目要解决的问题
+项目把 Markdown 笔记、文档上传、向量检索、AI 问答和团队空间放在同一套流程中：记录内容，整理成知识库，再通过对话查找与复用资料。
 
-工作资料、灵感和学习笔记常散落在不同文件中，关键词搜索不容易找回相关内容；即使找到了，也很难快速提炼重点或让团队成员共享上下文。智能笔记把笔记、文档、检索和 AI 辅助放在一套工作流里，帮助用户：
+[需求与功能](#需求与功能) · [技术架构](#技术架构) · [本地运行](#本地运行) · [服务配置](#服务配置) · [构建与部署](#构建与部署) · [测试与当前限制](#测试与当前限制) · [文档导航](#文档导航)
 
-- 集中管理笔记、标签和上传的资料，并支持搜索、导出和回收。
-- 让 AI 基于个人或共享知识库中的资料回答问题，减少重复查找与整理。
-- 在团队中共同维护文档，通过版本记录、评论和成员权限进行协作。
-- 发现、收藏和复用模板或公开分享的笔记。
+## 项目背景
 
-这些是项目的功能目标；外部模型、对象存储和支付能力是否可用，取决于部署者自己的服务配置。
+学习笔记、工作文档和临时想法常散落在不同文件或聊天记录中。文件夹可以整理位置，却难以回答“哪些资料提过这个问题”“这份文档的重点是什么”“团队之前如何处理过类似情况”。
 
-## 当前开发阶段
+本项目围绕以下需求展开：
 
-这是整个智能笔记项目的仓库，包含后端、用户端、管理端、数据库脚本和接口文档。2026-10-30 对新上传的前端进行了本地联调和修复，验证范围及限制见[联调报告](docs/前后端联调报告-20261030.md)。
-
-| 部分 | 当前状态 | 技术 / 内容 |
+| 使用者 | 实际需求 | 对应能力 |
 | --- | --- | --- |
-| 后端 | 已提交 | Java 17、Spring Boot 3.5、Maven |
-| 数据与检索 | 已提交 | PostgreSQL 16、pgvector、Redis |
-| 用户端 | 已加入并完成核心流程联调 | Vue 3、Vite 5、TypeScript、Tailwind CSS、Markdown 编辑器 |
-| 管理端 | 已加入并完成核心流程联调 | Vue 3、Vite 7、TypeScript、Element Plus、Pinia、ECharts |
+| 个人用户 | 记录、分类、找回笔记，减少重复整理 | 笔记本、Markdown 编辑、自动保存、标签、搜索、置顶和回收站 |
+| 知识库使用者 | 从自己的资料中获取答案 | 文档解析、分段、Embedding、向量检索及结合资料的问答 |
+| 团队成员 | 共享上下文，共同维护文档，追溯修改 | 团队空间、共享知识库、成员权限、文档锁和历史版本 |
+| 管理员 | 维护用户、公开内容和业务数据 | 独立管理端、账号审核、笔记、模板、评论、订单和看板 |
 
-## 功能模块
+目标是缩短从“记录资料”到“再次使用资料”的路径。AI 回答仍需结合原文核实，知识库检索不保证每次命中完整上下文。
 
-- 账号注册、登录、验证码、用户资料、管理员用户管理。
-- 笔记本、Markdown 笔记、自动保存、标签、置顶、导出和回收站。
-- AI 聊天、历史会话、流式回复、笔记续写/润色/总结/翻译。
-- 个人知识库文档上传、解析、向量索引、检索与引用。
-- 共享知识库、成员邀请、文件管理和基于资料的 AI 对话。
-- 团队空间、协作文档、锁、版本历史、评论/批注和团队 AI 会话。
-- 笔记广场、模板、会员套餐、订单和管理员看板。
+## 当前状态
+
+仓库包含完整的前后端项目源码。2026-10-30 对新上传的两个前端完成了一轮核心业务联调，修复了构建、路由、笔记保存、上传和管理端发布等问题。
+
+- 用户端、管理端和后端均已通过本地构建，前端针对性回归测试共 7 项通过。
+- 已实测登录、笔记操作、广场互动、真实 OSS 上传下载、向量索引、AI 问答、模板、共享库、团队文档及管理端发布。
+- 项目仍处于完善阶段；一次联调不等于全部功能已经验收。支付、物理文件回收等边界见[测试与当前限制](#测试与当前限制)。
+- 仓库不附带真实账号、业务数据库、云服务密钥或运行中的服务，克隆后需要自行初始化并配置。
+
+具体操作、修复及验证范围见[前后端联调报告](docs/前后端联调报告-20261030.md)。
+
+## 需求与功能
+
+| 模块 | 用户端能力 | 管理与后端支持 |
+| --- | --- | --- |
+| 账号 | 图形验证码、注册、登录、资料维护 | 角色区分、管理员审核、用户管理 |
+| 笔记 | 笔记本、Markdown 编辑、自动保存、标签、搜索、置顶、导出、回收站 | 持久化、归属校验、笔记管理 |
+| AI 助手 | 流式对话、会话历史、续写、润色、总结、翻译 | 模型调用、会话记忆、SSE 输出 |
+| 个人知识库 | 上传、处理状态、预览、下载、基于资料提问 | 文档解析、向量索引、检索和访问校验 |
+| 共享知识库 | 创建、加入、资料管理和问答 | 成员关系与共享检索范围管理 |
+| 团队空间 | 成员邀请、协作文档、评论、批注、团队 AI 会话 | 文档锁、成员权限、版本历史 |
+| 笔记广场 | 发布、浏览、点赞、收藏、评论 | 内容管理、发布和下线 |
+| 模板中心 | 浏览、收藏、评论、使用模板创建笔记 | 模板发布与管理 |
+| 会员与订单 | 套餐、订单、支付结果页面 | 会员数据、订单管理、支付宝沙箱接口，完整支付闭环待验证 |
+| 管理看板 | — | 用户、笔记、知识库、模板、评论、订单及统计页面 |
+
+表格描述已有实现范围，逐项测试范围以联调报告为准。
 
 ## 技术架构
 
 ```mermaid
 flowchart LR
-  User[用户端 / 管理端] -->|REST JSON / SSE| API[Spring Boot API]
-  API --> PG[(PostgreSQL 16)]
+  U[用户端 Vue 3] -->|REST / SSE| API[Spring Boot API]
+  A[管理端 Vue 3] -->|REST| API
+  API --> PG[(PostgreSQL 16 业务数据)]
   API --> VEC[(pgvector 文档向量)]
-  API --> Redis[(Redis)]
-  API --> Model[聊天模型与 Embedding API]
-  API --> Storage[本地存储或对象存储]
-  API --> Pay[支付宝沙箱，可选]
+  API --> R[(Redis 会话 / 验证码 / 对话记忆)]
+  API --> C[聊天模型 API]
+  API --> E[Embedding API]
+  API --> F[本地文件存储 / 阿里云 OSS]
+  API --> P[支付宝沙箱]
 ```
 
-| 技术 | 用途 |
-| --- | --- |
-| Java 17、Spring Boot 3.5 | REST API、业务服务、后台任务 |
-| Maven | Java 依赖管理、编译与打包 |
-| Sa-Token | 登录状态与角色校验 |
-| MyBatis-Plus | 数据访问与分页 |
-| PostgreSQL 16 | 用户、笔记、文档、协作和订单等业务数据 |
-| pgvector | 存储及查询文档向量；当前 Embedding 维度为 1024 |
-| Redis 6/7 | 验证码、会话记忆及缓存 |
-| LangChain4j | 聊天模型、流式生成、Embedding 与知识检索 |
-| 阿里云 OSS / 本地存储 | 用户上传文件的可选存储后端 |
-| 支付宝沙箱 | 会员订单流程的可选支付服务 |
-| Vue 3、Vite、TypeScript | 用户端和管理端页面、路由与构建 |
+pgvector 是 PostgreSQL 中的扩展，业务表与向量表使用同一个数据库连接。本项目实际使用 PostgreSQL，不需要额外启动 MySQL。
+
+| 层次 | 主要技术 | 用途 |
+| --- | --- | --- |
+| 后端 | Java 17、Spring Boot 3.5.0、Maven | API、业务服务、依赖管理与打包 |
+| 数据访问 | MyBatis-Plus、HikariCP、PostgreSQL 16 | 数据映射、分页、连接池与业务持久化 |
+| 登录与缓存 | Sa-Token、Redis 6/7 | 登录会话、角色校验、验证码和对话记忆 |
+| AI 与检索 | LangChain4j 0.36.2、OpenAI 兼容接口、pgvector | 模型调用、Embedding、检索增强生成 |
+| 文件与内容 | x-file-storage、OSS SDK、Apache Tika、PDFBox、POI | 文件存储、文档解析与导出 |
+| 用户端 | Vue 3、Vite 5、TypeScript、Tailwind CSS 3、Vue Router、md-editor-v3 | 笔记、知识库与 AI 交互 |
+| 管理端 | Vue 3、Vite 7、TypeScript、Element Plus、Pinia、ECharts、Tailwind CSS 4 | 后台页面、状态管理与统计展示 |
+| 工程检查 | GitHub Actions、Node test、tsx、vue-tsc | 前后端构建、类型检查与回归测试 |
+
+知识库处理流程：上传文件 → 解析与文本分段 → Embedding → 写入 1024 维向量 → 根据提问检索片段 → 交给聊天模型生成回答。**文件上传成功与向量索引成功是两个阶段**，使用知识库问答前应确认处理状态成功。
 
 ## 仓库结构
 
 ```text
 smart-notes/
-├─ .github/workflows/         # 前后端构建与前端回归检查
+├─ .github/workflows/
+│  ├─ backend-ci.yml                 # Java 编译与打包
+│  └─ frontend-ci.yml                # 双前端回归、类型检查与生产构建
 ├─ docs/
-│  ├─ 接口目录.md
-│  ├─ 数据字段字典.md
-│  └─ 前后端联调报告-20261030.md
-├─ note-vue/                 # 用户端，开发端口 3000
-├─ art-design-pro/           # 管理端，开发端口 3006
-├─ initialization-note-side/
-│  ├─ deploy/                 # PostgreSQL 初始化及检查 SQL
-│  ├─ src/main/java/          # 后端源码
+│  ├─ 接口目录.md                    # 路由、参数、权限和响应类型
+│  ├─ 数据字段字典.md                # DTO、VO 和实体字段
+│  └─ 前后端联调报告-20261030.md      # 修复、实测范围与限制
+├─ note-vue/                         # 用户端
+│  ├─ src/api/                       # API 封装
+│  ├─ src/components/                # 编辑器与公共组件
+│  ├─ src/views/                     # 用户业务页面
+│  └─ tests/                         # 自动保存回归
+├─ art-design-pro/                   # 管理端
+│  ├─ .env.example                   # 可提交的公开配置示例
+│  ├─ src/api/                       # 管理 API
+│  ├─ src/router/                    # 路由与权限
+│  ├─ src/views/                     # 后台业务页面
+│  └─ tests/                         # 路由权限回归
+├─ initialization-note-side/         # Java 后端
+│  ├─ deploy/
+│  │  ├─ init-local.sql              # 32 张业务表 + documents 向量表
+│  │  ├─ check-local.sql             # 隔离数据库结构验证
+│  │  └─ migrations/                 # 已有数据库迁移
+│  ├─ src/main/java/                 # 控制器、服务、数据访问及配置
 │  ├─ src/main/resources/
-│  │  └─ application-example.yml
+│  │  └─ application-example.yml     # 后端配置示例，不含真实凭据
+│  ├─ src/test/                      # 遗留后端测试，需隔离环境
 │  └─ pom.xml
 └─ README.md
 ```
 
-本机配置、依赖目录、构建产物和测试账号均不属于可提交的项目源码。
+本机配置、依赖、构建产物、上传文件、日志和数据库备份不属于提交内容。管理端旧设计文档仅供参考；当前建表和接口以统一后端脚本、源码及根目录 `docs/` 为准。
 
-## 本地运行后端
+## 本地运行
 
-### 环境要求
+### 1. 准备环境
 
-- JDK 17
-- Maven
-- PostgreSQL 16，并在数据库中安装 pgvector
-- Redis 6 或 7
-- AI 聊天和 Embedding 服务密钥（使用 AI 功能时）
-- 文件存储配置（需要上传文件时）
-- 支付宝沙箱配置（需要测试支付时）
+| 依赖 | 推荐版本 | 说明 |
+| --- | --- | --- |
+| JDK | 17 | IDEA 项目与 Maven Runner 都选择 JDK 17 |
+| Maven | 3.9.x | 本地验证使用 3.9.16 |
+| Node.js | 22 LTS，至少 22.12 | 同时满足两个前端的构建要求 |
+| pnpm | 10.18.3 | 管理端使用，用户端使用 npm |
+| PostgreSQL | 16 | 服务端需要安装 pgvector 扩展文件 |
+| Redis | 6 或 7 | 后端启动前应可连接 |
 
-### 配置与数据库
+PostgreSQL、Redis 可使用本机服务或已有容器，Docker 是可选运行方式。原生 PostgreSQL 默认端口是 `5432`；容器映射为 `15432:5432` 时，Windows 后端应连接 `15432`。
 
-1. 复制 `initialization-note-side/src/main/resources/application-example.yml` 为同目录下的 `application.yml`。
-2. 按自己的环境填写数据库、Redis、AI、文件存储及支付配置。请勿把含真实凭据的 `application.yml` 提交到 Git。
-3. 对全新数据库执行 `initialization-note-side/deploy/init-local.sql`。已有数据库请先备份并检查迁移要求；`CREATE TABLE IF NOT EXISTS` 不会补齐旧表缺少的字段。
-4. 当前向量列为 1024 维；数据库中的 pgvector 定义必须与所使用的 Embedding 模型维度一致。
+```powershell
+git clone https://github.com/Landelos1/smart-notes.git
+Set-Location smart-notes
+```
 
-同一手机号可以分别拥有用户端和管理端账号，唯一约束为 `(phone, role_type)`。如果已有数据库仍按手机号全局唯一，先备份，再执行 `initialization-note-side/deploy/migrations/20261030_account_role_uniqueness.sql`。旧管理端目录中的数据库导出已移除，请使用上述统一脚本。
+这是私有仓库，克隆需要仓库访问权限。以下以仓库根目录和 PowerShell 为例；其他系统按相同步骤调整命令。
 
-可用环境变量覆盖配置示例中的值，包括：
+### 2. 初始化 PostgreSQL
 
-| 配置 | 环境变量 |
-| --- | --- |
-| PostgreSQL | `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` |
-| Redis | `REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、`REDIS_PASSWORD` |
-| 登录签名密钥 | `JWT_SECRET_KEY` |
-| 聊天模型 | `AI_CHAT_BASE_URL`、`AI_CHAT_API_KEY`、`AI_CHAT_MODEL` |
-| Embedding 模型 | `AI_EMBEDDING_BASE_URL`、`AI_EMBEDDING_API_KEY`、`AI_EMBEDDING_MODEL` |
-| 阿里云 OSS | `OSS_DOMAIN`、`OSS_ACCESS_KEY`、`OSS_ACCESS_SECRET`、`OSS_BUCKET`、`OSS_ENDPOINT`、`OSS_BASE_PATH` |
-| 支付宝 | `ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`、`ALIPAY_GATEWAY_URL`、`ALIPAY_RETURN_URL`、`ALIPAY_NOTIFY_URL` |
+先启动 PostgreSQL 和 Redis。下列命令用于**全新数据库**，需要本机原生 PostgreSQL 客户端在 PATH 中；端口、用户名与数据库名按自己的部署调整：
 
-### 在 IDEA 中运行
+```powershell
+createdb -h 127.0.0.1 -p 5432 -U postgres -W smart_notes
+psql -h 127.0.0.1 -p 5432 -U postgres -d smart_notes -W -v ON_ERROR_STOP=1 -f initialization-note-side/deploy/init-local.sql
+```
 
-1. 用 IDEA 打开 `initialization-note-side/pom.xml` 并导入 Maven 项目。
-2. 将 Project SDK 和 Maven Runner JDK 都设为 17。
-3. 确保 PostgreSQL 和 Redis 已运行，配置文件可以连接到它们。
-4. 运行主类 `com.ldd.initialization.InitializationApplication`。
+脚本会执行 `CREATE EXTENSION IF NOT EXISTS vector` 并创建 33 张表，需要相应建表及扩展权限。提示 `vector.control` 缺失表示 PostgreSQL 服务端尚未安装 pgvector，不能只靠 SQL 解决。
 
-后端默认监听 `http://localhost:8889`。也可以在仓库根目录执行：
+也可在 IDEA / DataGrip 中连接目标 PostgreSQL 数据库，选择 `public` schema，执行整个 [init-local.sql](initialization-note-side/deploy/init-local.sql)，包括 `BEGIN` 和 `COMMIT`。失败时在同一控制台执行 `ROLLBACK;`，处理后重试。
+
+**已有数据库先备份**，空库脚本不能自动修复旧业务表缺失字段。账号原先按手机号全局唯一时，执行[账号角色唯一约束迁移](initialization-note-side/deploy/migrations/20261030_account_role_uniqueness.sql)。更多客户端、Docker 和检查步骤见[数据库部署说明](initialization-note-side/deploy/README.md)。
+
+仓库不导入历史用户、私人文件或预设套餐价格。
+
+### 3. 配置并启动后端
+
+首次运行复制示例：
+
+```powershell
+Copy-Item initialization-note-side/src/main/resources/application-example.yml initialization-note-side/src/main/resources/application.yml
+```
+
+已有 `application.yml` 时直接修改，避免覆盖自己的设置。至少确认：
+
+- `spring.datasource` 指向初始化后的数据库，账号密码正确，JDBC URL 显式填写端口。
+- `spring.data.redis` 主机、端口、数据库编号与密码正确。
+- `sa-token.jwt-secret-key` 使用自己的随机值。
+- 聊天与 Embedding 模型使用自己的凭据，文件存储选择本地或自己的 OSS。
+
+示例 JDBC URL 可改为 `jdbc:postgresql://127.0.0.1:5432/smart_notes?sslmode=disable`。`CHANGE_ME` / `YOUR_*` 是占位符，不是可用凭据；完整说明见[服务配置](#服务配置)。
+
+IDEA 启动步骤：
+
+1. 打开 `initialization-note-side/pom.xml`，导入 Maven 项目并等待依赖下载完成。
+2. 将 Project SDK 与 Maven Runner JDK 设为 17。
+3. 运行主类 `com.ldd.initialization.InitializationApplication`。
+4. 确认服务监听 `8889`，启动日志无数据库、Redis 或配置异常。
+
+或在仓库根目录执行：
 
 ```powershell
 mvn -B -f initialization-note-side/pom.xml spring-boot:run
 ```
 
-PostgreSQL 的默认端口是 5432；如果你的本机使用其他端口映射，需要修改 JDBC URL。端口和账号以本机配置为准。
+后端地址为 `http://localhost:8889`。访问 `/` 返回 404 不代表启动失败；可访问 `http://localhost:8889/api/common/captcha`，应返回包含图形验证码信息的 JSON。
 
-## 本地运行前端
+### 4. 启动用户端
 
-建议使用 Node.js 22 LTS（至少 22.12），管理端使用 pnpm 10.18.3。后端需要先运行在 8889 端口；两个前端通过 Vite 代理将 `/api` 转发给后端，浏览器访问前端地址即可。
-
-用户端，在 `note-vue` 目录执行：
+新开终端，进入仓库的 `note-vue` 目录：
 
 ```powershell
 npm ci
 npm run dev
 ```
 
-打开 `http://localhost:3000`。代理目标位于 `note-vue/vite.config.js`；更换后端端口时需同步修改。
+访问 `http://localhost:3000`。代理位于 [note-vue/vite.config.js](note-vue/vite.config.js)，默认将 `/api` 转发到 `http://localhost:8889`。修改后端端口时同步修改并重启前端。
 
-管理端，在 `art-design-pro` 目录执行：
+### 5. 启动管理端
+
+尚未安装 pnpm 时，先执行 `npm install --global pnpm@10.18.3`。再新开终端，进入仓库的 `art-design-pro` 目录：
 
 ```powershell
 Copy-Item .env.example .env.local
@@ -152,48 +208,184 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-打开 `http://localhost:3006/#/auth/login`。首次配置时才复制 `.env.example`，已有 `.env.local` 请直接修改，避免覆盖本机设置。`VITE_API_PROXY_URL` 指向后端；所有 `VITE_*` 值会进入浏览器代码，不能填写模型密钥、数据库密码或 OSS 密钥。
+已有 `.env.local` 时跳过复制。访问 `http://localhost:3006/#/auth/login`；`VITE_API_PROXY_URL` 默认指向 `http://127.0.0.1:8889`，`VITE_ACCESS_MODE=frontend` 使用当前项目的前端路由配置。
 
-注册的管理员处于待审核状态，需要已有管理员审核启用；普通用户账号和管理端账号按角色区分。仓库不附带默认账号或真实密码。
+所有 `VITE_*` 配置都会进入浏览器代码，不能保存数据库密码、模型 API Key、OSS 密钥或支付私钥。两个前端按各自 lockfile 安装，避免混用 npm 和 pnpm。
 
-生产部署时用户端产物在 `note-vue/build`，管理端产物在 `art-design-pro/dist`。生产服务器需要单独配置 `/api` 反向代理，Vite 开发代理不会进入静态产物。用户端采用 history 路由，静态服务器还需为页面路由回退到 `index.html`。
+### 6. 注册与首个管理员启用
 
-## 接口与响应
+普通用户在用户端注册，角色为 `1`；管理员在管理端注册，角色为 `2`，初始状态为待审核。同一手机号可以分别注册两种角色，每个角色内唯一。仓库不附带默认账号或密码。
 
-- [接口目录](docs/接口目录.md)：当前 170 个后端路由，包含参数、权限、返回类型及源码位置。
-- [数据字段字典](docs/数据字段字典.md)：DTO、VO 和直接返回实体的字段说明。
-- 大多数 JSON 接口返回 `{code, message, data}`；分页结果通常位于 `data.data` 和 `data.total`。
-- AI 流式接口使用 SSE 文本响应，不是普通 JSON；按接口目录中标注的端点约定解析。
+已有管理员时通过管理端审核。**全新自建环境还没有管理员时**，由数据库维护者先核对刚注册的管理员身份，再在自己的数据库控制台操作；必须替换手机号，不能批量启用：
 
-接口文档依据当前控制器整理，并非每个路由均经过端到端测试。业务错误可能通过 HTTP 200 返回非零 `code`；上传接口还需检查文档处理状态。
+```sql
+SELECT id, phone, username, role_type, status
+FROM public.t_user
+WHERE phone = '替换为刚注册的管理员手机号' AND role_type = 2;
 
-## 构建与自动检查
+UPDATE public.t_user
+SET status = 1, update_time = CURRENT_TIMESTAMP
+WHERE phone = '替换为刚注册的管理员手机号'
+  AND role_type = 2 AND status = 2
+RETURNING id, username, role_type, status;
+```
 
-本地构建：
+确认只返回目标账号后再登录管理端。状态为 `0` 禁用、`1` 启用、`2` 待审核；普通用户无需上述操作。
+
+### 7. 首次自检与日常启动
+
+建议依次验证：注册登录 → 新建笔记本和笔记 → 编辑后刷新确认保存 → 上传小 TXT → 等待索引成功 → 根据 TXT 内容提问 → 检查管理端发布与下线。
+
+日常无需重复建表、注册或安装依赖，确保 PostgreSQL、Redis、后端和所需前端已运行即可。数据库安装为系统服务并自动启动后，无需每次手动启动；依赖锁文件变化时再重新安装前端依赖。
+
+## 服务配置
+
+后端配置入口为 [application-example.yml](initialization-note-side/src/main/resources/application-example.yml)。复制后修改，或通过环境变量覆盖对应值；IDEA 可以在 Run Configuration 的 Environment variables 中设置。
+
+| 服务 | 环境变量 | 说明 |
+| --- | --- | --- |
+| PostgreSQL | `DB_URL`、`DB_USERNAME`、`DB_PASSWORD` | 默认 `localhost:5432/postgres`，修改为自己的库和端口 |
+| Redis | `REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、`REDIS_PASSWORD` | 默认 `localhost:6379`、数据库 `2`，有密码时填写 |
+| 登录 | `JWT_SECRET_KEY` | 使用自己的随机密钥，替换占位符 |
+| 用户端地址 | `FRONTEND_URL` | 默认 `http://localhost:3000`，部署时修改 |
+| 聊天 | `AI_CHAT_BASE_URL`、`AI_CHAT_API_KEY`、`AI_CHAT_MODEL` | 示例为 DeepSeek，普通与流式聊天共用这些变量 |
+| Embedding | `AI_EMBEDDING_BASE_URL`、`AI_EMBEDDING_API_KEY`、`AI_EMBEDDING_MODEL` | 示例为百炼兼容接口与 `text-embedding-v3` |
+| 阿里云 OSS | `OSS_DOMAIN`、`OSS_ACCESS_KEY`、`OSS_ACCESS_SECRET`、`OSS_BUCKET`、`OSS_ENDPOINT`、`OSS_BASE_PATH` | 仅后端持有凭据，还需切换实际存储平台 |
+| 支付宝 | `ALIPAY_APP_ID`、`ALIPAY_PRIVATE_KEY`、`ALIPAY_PUBLIC_KEY`、`ALIPAY_GATEWAY_URL`、`ALIPAY_RETURN_URL`、`ALIPAY_NOTIFY_URL` | 示例为沙箱网关，不代表生产支付已开通 |
+
+### 聊天与知识库模型
+
+聊天模型生成答案，Embedding 模型把资料转换为向量，两者的接口和 Key 可能来自不同服务商。只配置聊天模型不能保证知识库索引可用。
+
+当前 [PgVectorConfig](initialization-note-side/src/main/java/com/ldd/initialization/config/ai/PgVectorConfig.java) 与初始化脚本均使用 **1024 维**。更换 Embedding 模型或维度前，需要同步调整代码与数据库，并重新生成已有资料的向量；不同模型产生的向量不应直接混用。
+
+示例使用 OpenAI 兼容接口，新增供应商仍需验证兼容性。模型请求与响应日志默认关闭。
+
+### 文件存储
+
+示例默认使用 `local-plus`，文件写入后端工作目录下的 `./data/uploads/`。相对路径取决于启动工作目录；正式运行建议使用固定持久目录并备份。
+
+使用 OSS 时，在 `dromara.x-file-storage` 中将 `default-platform` 改为 `aliyun-oss`，将该平台 `enable-storage` 设为 `true`，填写自己的 Bucket、Endpoint、域名、路径前缀及凭据。变更后重启后端，再验证上传与下载。
+
+### 支付
+
+支付宝应用 ID、应用私钥和支付宝公钥保存在后端。`return-url` 是支付后的浏览器跳转地址，`notify-url` 是支付宝服务器调用的后端通知接口；验证异步通知需要公网可访问地址。
+
+初始化脚本不预设套餐价格，支付还需要部署者配置有效套餐和自己的支付宝应用。本次联调未执行真实付款、退款和公网回调验证。
+
+## 接口约定
+
+- 开发时浏览器通过前端 `/api` 代理访问；直接调试后端使用 `http://localhost:8889/api/...`。
+- 登录返回令牌，后续发送 `Authorization: Bearer <token>`；角色与资源归属校验由后端处理。
+- 大多数 JSON 接口返回 `{ "code": 0, "message": "成功", "data": ... }`，业务成功码为 `0`。
+- 分页通常为外层 `data` 中包含 `{ "data": [], "total": 0 }`，直接返回分页实体的接口以文档为准。
+- HTTP 200 不一定表示业务成功，还需检查 `code`；下载和支付宝通知等接口不统一返回上述结构。
+- AI 流式接口使用 SSE，应按事件解析；上传还需区分文件保存和后续索引状态。
+
+完整路由、参数与权限见[接口目录](docs/接口目录.md)，字段见[数据字段字典](docs/数据字段字典.md)。文档包含 170 个路由，源码变化时需要同步更新；并非每个接口都已完成端到端测试。
+
+## 构建与部署
+
+### 后端打包
+
+在仓库根目录执行：
 
 ```powershell
 mvn -B -f initialization-note-side/pom.xml -DskipTests package
 ```
 
-前端检查，分别在对应目录执行：
+产物为 `initialization-note-side/target/initialization-node-0.0.1-SNAPSHOT.jar`，可用 Java 17 启动。配置可放在仓库外，例如先自行创建 `E:/smart-notes-config/application.yml` 并填写，再执行：
+
+```powershell
+java -jar initialization-note-side/target/initialization-node-0.0.1-SNAPSHOT.jar --spring.config.location=file:E:/smart-notes-config/application.yml
+```
+
+路径为示例，项目不会自动创建该目录。生产构建建议从干净检出目录生成产物，通过外部配置提供凭据，避免把本机 `application.yml` 随资源打进 JAR。
+
+### 前端构建
+
+分别在对应目录执行：
 
 ```powershell
 # note-vue
+npm ci
 npm test
 npm run build
 
-# art-design-pro
+# art-design-pro：首次构建前准备好 .env.local
+pnpm install --frozen-lockfile
 pnpm test
 pnpm build
 ```
 
-管理端构建先由 Vite 生成自动导入的类型声明，再运行 `vue-tsc --noEmit`；类型检查失败时整个构建仍失败。
+用户端产物为 `note-vue/build/`，管理端产物为 `art-design-pro/dist/`。管理端先由 Vite 生成自动导入声明，再运行 `vue-tsc --noEmit`；类型检查失败仍使整个构建失败。
 
-GitHub Actions 使用 Java 17 打包后端，并在前端发生变更时分别安装锁定依赖、运行前端回归测试及生产构建。后端构建跳过集成测试，因为部分遗留测试需要数据库、Redis 或外部模型服务，且会修改业务数据，不能在日常使用的数据库上直接运行完整测试套件。完整业务验证仍需在隔离账号和配置好的环境中进行。
+### 生产部署还需完成的配置
 
-## 配置与安全
+- 静态服务器托管两个前端，配置 `/api` 反向代理；Vite 开发代理不会进入静态产物。
+- 用户端使用 history 路由，页面请求需回退到 `index.html`；管理端使用 hash 路由。
+- SSE 关闭代理缓冲并设置合适读取超时；上传请求大小与后端限制保持一致。
+- 持久化 PostgreSQL、Redis 和本地上传目录，设置备份、恢复验证、日志轮转和进程重启。
+- 使用实际域名和 HTTPS，核对支付回调、文件域名和前端地址，完成权限与安全复核后再对外开放。
 
-- `application.yml`、环境变量、密钥文件、IDE 配置、日志、构建产物和上传数据已加入忽略规则。
-- `application-example.yml` 中的密钥均为占位符；本机配置应使用自己的凭据。
-- 支付宝异步通知需要公网可访问的回调地址；本地 localhost 地址只适合本机页面跳转。
-- 目前文件上传、AI、OSS 和支付依赖各自的第三方配置；未设置时相应功能无法完整工作。
+仓库目前未提供完整的生产一键部署方案，开发服务启动成功不能代替生产配置验证。
+
+## 测试与当前限制
+
+### 检查范围
+
+| 检查 | 内容与本地结果 |
+| --- | --- |
+| 后端构建 | Java 17 编译与打包通过，使用 `-DskipTests` |
+| 用户端 | 类型检查、生产构建及 4 项自动保存回归通过 |
+| 管理端 | 类型检查、生产构建及 3 项路由权限回归通过 |
+| 数据库 | 空库初始化 33 表、pgvector、角色约束迁移与重复迁移通过 |
+| 核心业务联调 | 登录、笔记、广场、OSS、索引、AI、模板、共享库、团队、管理端发布通过 |
+
+GitHub Actions 使用 Java 17 / Node 22；前端对应目录变化时运行锁定依赖安装、回归测试与生产构建。检查通过代表所列检查通过，不代表完整业务验收。
+
+后端部分遗留测试依赖外部服务、固定用户和业务库，可能改写数据，因此日常 CI 不运行完整套件；需要时先准备隔离数据库、账号与配置。`deploy/check-local.sql` 也只用于隔离测试库，虽回滚业务数据，自增序列仍可能前进。
+
+### 已知限制与待完善项
+
+1. **文件物理回收未完善**：回收站“彻底删除”删除数据库记录，但不会自动清理 OSS / 磁盘原文件；需结合引用检查和失败重试补齐。
+2. **支付闭环尚未全面验证**：真实付款、退款、支付宝公网通知与异常补偿需要专项测试。
+3. **部分预览依赖较大**：Office / PDF 形成较大 chunk，可能影响首次加载；尚未覆盖全部格式和大文件。
+4. **稳定性验证需扩大**：团队并发冲突、全部权限组合、供应商切换、压力与长期运行尚未全面覆盖。
+5. **安全与运维需复核**：针对性修复不等于完整安全审计，生产 HTTPS、备份恢复、监控与跨浏览器测试需要单独完成。
+6. **历史数据不能用于部署**：管理端旧 SQL 导出已从当前版本移除，Git 旧提交仍有历史副本，不应初始化新环境。
+
+完整实测和清理记录见[联调报告](docs/前后端联调报告-20261030.md)。
+
+## 常见问题
+
+| 现象 | 优先检查 |
+| --- | --- |
+| 数据库连接失败 | 服务是否运行、端口是默认 5432 还是映射端口、JDBC 库名与密码是否一致 |
+| PostgreSQL 与 MySQL 同时运行 | 默认端口不同，可并存，本项目实际连接 PostgreSQL |
+| `relation ... does not exist` | 是否在后端实际连接的数据库执行了完整初始化脚本 |
+| `extension vector is not available` | PostgreSQL 服务端是否安装匹配版本的 pgvector |
+| 页面打开但接口失败 | 后端 8889、`/api` 代理目标、业务响应 `code` |
+| 管理员账号待审核 | 由已有管理员审核，首个管理员按上文核对后启用 |
+| 聊天可用但资料问答失败 | Embedding Key、维度、文档索引状态与知识库选择 |
+| OSS 找不到上传文件 | 实际存储平台、Bucket、`base-path` 前缀与上传返回地址 |
+| 前端安装或类型检查失败 | 推荐 Node 版本、对应包管理器、仓库 lockfile，避免混用 npm/pnpm |
+| IDEA 没有后端运行按钮 | 导入 `initialization-note-side/pom.xml`，确认 JDK 17 |
+
+## 配置与协作
+
+`application.yml`、`.env.local`、密钥文件、日志、构建产物和上传数据已加入忽略规则。仅提交配置示例，真实配置通过自己的部署环境管理；前端只保存公开配置。
+
+建议用功能分支完成单个需求，在提交说明中写清问题、改动和验证结果。涉及 API、数据库、配置的变更应同步更新文档和迁移脚本。提交记录反映实际工作，不回填虚构开发历史。
+
+管理端基于 Art Design Pro，保留其 [MIT 许可证与版权声明](art-design-pro/LICENSE)。其他依赖按各自许可证使用；本仓库没有为整个项目另行声明统一开源许可证。
+
+## 文档导航
+
+- [后端接口目录](docs/接口目录.md)
+- [请求与响应字段字典](docs/数据字段字典.md)
+- [数据库初始化、迁移和检查](initialization-note-side/deploy/README.md)
+- [2026-10-30 前后端联调报告](docs/前后端联调报告-20261030.md)
+- [后端配置示例](initialization-note-side/src/main/resources/application-example.yml)
+- [管理端配置示例](art-design-pro/.env.example)
+- [后端 CI](.github/workflows/backend-ci.yml) / [前端 CI](.github/workflows/frontend-ci.yml)
