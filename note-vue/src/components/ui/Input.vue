@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { cn } from './utils'
 
 interface Props {
-  modelValue?: string
+  modelValue?: string | number | null
   type?: string
   placeholder?: string
   disabled?: boolean

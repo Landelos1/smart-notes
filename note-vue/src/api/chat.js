@@ -5,6 +5,7 @@ import { apiFetch } from './apiClient'
  * @param {Object} params - 聊天参数
  * @param {string} params.memoryId - 会话ID
  * @param {string} params.message - 消息内容
+ * @param {string} [params.displayMessage] - 历史记录中显示的原始消息
  * @param {string} [params.agentId] - 智能体标识
  * @param {boolean} params.useKnowledge - 是否使用知识库增强回答（默认true）
  * @param {Function} onChunk - 接收到数据块的回调函数

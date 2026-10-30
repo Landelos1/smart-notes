@@ -3,10 +3,10 @@ import apiClient from './apiClient'
 /**
  * 搜索模板列表
  * @param {Object} params - 搜索参数
- * @param {string} params.category - 分类（all表示全部）
- * @param {string} params.keyword - 搜索关键词
- * @param {number} params.page - 页码
- * @param {number} params.pageSize - 每页数量
+ * @param {string} [params.category] - 分类（all表示全部）
+ * @param {string} [params.keyword] - 搜索关键词
+ * @param {number} [params.page] - 页码
+ * @param {number} [params.pageSize] - 每页数量
  * @returns {Promise<Object>} 分页结果
  */
 export const getTemplates = (params = {}) => {
@@ -16,7 +16,7 @@ export const getTemplates = (params = {}) => {
 /**
  * 获取模板详情
  * @param {number|string} id - 模板ID
- * @returns {Promise<Object>} 模板详情
+ * @returns {Promise<import('../types/api').ApiResponse<import('../types/api').TemplateData>>} 模板详情
  */
 export const getTemplateById = (id) => {
   return apiClient.get(`/api/templates/${id}`)
@@ -26,7 +26,7 @@ export const getTemplateById = (id) => {
  * 获取相关模板
  * @param {number|string} id - 当前模板ID
  * @param {number} limit - 限制数量
- * @returns {Promise<Array>} 相关模板列表
+ * @returns {Promise<import('../types/api').ApiResponse<import('../types/api').TemplateData[]>>} 相关模板列表
  */
 export const getRelatedTemplates = (id, limit = 3) => {
   return apiClient.get(`/api/templates/${id}/related`, { params: { limit } })
@@ -35,7 +35,7 @@ export const getRelatedTemplates = (id, limit = 3) => {
 /**
  * 获取模板评论
  * @param {number|string} id - 模板ID
- * @returns {Promise<Array>} 评论列表
+ * @returns {Promise<import('../types/api').ApiResponse<Array<{id: string, author: string, avatar: string, content: string, rating: number, createdAt: string, likes: number}>>>} 评论列表
  */
 export const getTemplateComments = (id) => {
   return apiClient.get(`/api/templates/${id}/comments`)
@@ -105,7 +105,7 @@ export const getMyTemplates = () => {
 /**
  * 获取模板分享信息
  * @param {number|string} id - 模板ID
- * @returns {Promise<Object>} 分享信息
+ * @returns {Promise<import('../types/api').ApiResponse<{shareUrl: string, title: string, description: string}>>} 分享信息
  */
 export const shareTemplate = (id) => {
   return apiClient.post(`/api/templates/${id}/share`)
@@ -132,7 +132,7 @@ export const unfavoriteTemplate = (id) => {
 /**
  * 查询模板收藏状态
  * @param {number|string} id - 模板ID
- * @returns {Promise<Boolean>} 是否已收藏
+ * @returns {Promise<import('../types/api').ApiResponse<boolean>>} 是否已收藏
  */
 export const getFavoriteStatus = (id) => {
   return apiClient.get(`/api/templates/${id}/favorite/status`)

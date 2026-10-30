@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, useAttrs } from 'vue'
+import { computed } from 'vue'
+import type { ClassValue } from 'clsx'
 import { cn } from './utils'
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
   size?: 'default' | 'sm' | 'lg' | 'icon'
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
-  class?: string
+  class?: ClassValue
 }
 
 const props = withDefaults(defineProps<Props>(), {

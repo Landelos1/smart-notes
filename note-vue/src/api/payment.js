@@ -24,11 +24,11 @@ export function queryOrderStatus(orderNo) {
 }
 
 /**
- * 同步订单状态（主动查询支付宝）
+ * 刷新订单状态，支付结果由后端验签的异步通知更新。
  * @param {string} orderNo - 订单编号
  */
 export function syncOrderStatus(orderNo) {
-  return apiClient.post(`/api/payment/order/${orderNo}/sync`)
+  return queryOrderStatus(orderNo)
 }
 
 /**

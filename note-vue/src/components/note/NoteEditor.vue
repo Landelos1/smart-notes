@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, watch, onBeforeUnmount, onMounted } from 'vue'
+import { createDraftSaver } from '@/utils/draftSaver'
 import Input from '@/components/ui/Input.vue'
 import Button from '@/components/ui/Button.vue'
 import Badge from '@/components/ui/Badge.vue'
@@ -15,12 +16,12 @@ import { useModal } from '@/composables/useModal'
 interface Props {
   note: Note | null
   notebooks?: Notebook[]
+  saveNote: (noteId: string, updates: Partial<Note>) => Promise<void>
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  'update': [updates: Partial<Note>]
   'change-notebook': [noteId: string, notebookId: string]
   'create-note': []
   'open-template': []
@@ -38,25 +39,54 @@ const aiAction = ref('continue')
 const customPrompt = ref('')
 const generatedContent = ref('')
 const isGenerating = ref(false)
-let saveTimeout: ReturnType<typeof setTimeout> | null = null
-let isExternalUpdate = false // 标记是否是外部更新，避免循环
+let isExternalUpdate = false
+const saveState = ref<'pending' | 'saving' | 'saved' | 'error'>('saved')
+const accountScope = [...(localStorage.getItem('satoken') || '')].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) >>> 0, 0)
+const draftKey = (noteId: string) => `note-draft:${accountScope}:${noteId}`
+const recoveredDraft = ref(false)
+const saver = createDraftSaver<Partial<Note>>(
+  async (noteId, draft) => {
+    await props.saveNote(noteId, draft)
+    try {
+      if (sessionStorage.getItem(draftKey(noteId)) === JSON.stringify(draft)) sessionStorage.removeItem(draftKey(noteId))
+    } catch { /* Saving to the server must not depend on browser storage. */ }
+  },
+  (noteId, state) => { if (noteId === props.note?.id) saveState.value = state }
+)
 
 // 更新本地状态
-watch(() => props.note, (newNote) => {
+watch(() => props.note, (newNote, oldNote) => {
+  if (newNote && oldNote?.id === newNote.id) return
+  saveState.value = 'saved'
+  recoveredDraft.value = false
+  if (oldNote && oldNote.id !== newNote?.id) void saver.flush(oldNote.id).catch(() => {})
+  isExternalUpdate = true
   if (newNote) {
     // 标记为外部更新，避免触发自动保存
     isExternalUpdate = true
     title.value = newNote.title
     content.value = newNote.content
     tags.value = [...newNote.tags]
-    // 下一个 tick 后恢复
-    setTimeout(() => {
-      isExternalUpdate = false
-    }, 0)
   } else {
     title.value = ''
     content.value = ''
     tags.value = []
+  }
+  isExternalUpdate = false
+  if (newNote) {
+    try {
+      const stored = sessionStorage.getItem(draftKey(newNote.id))
+      if (stored) {
+        const draft = JSON.parse(stored)
+        isExternalUpdate = true
+        title.value = draft.title ?? newNote.title
+        content.value = draft.content ?? newNote.content
+        tags.value = draft.tags ?? newNote.tags
+        isExternalUpdate = false
+        recoveredDraft.value = true
+        saver.schedule(newNote.id, draft)
+      }
+    } catch { isExternalUpdate = false }
   }
 }, { immediate: true })
 
@@ -65,25 +95,31 @@ watch([title, content, tags], () => {
   // 如果是外部更新引起的变化，不触发保存
   if (!props.note || isExternalUpdate) return
   
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
-  }
-  
-  saveTimeout = setTimeout(() => {
-    emit('update', {
+  const draft = {
       title: title.value,
       content: content.value,
-      tags: tags.value,
+      tags: [...tags.value],
       updatedAt: new Date()
-    })
-  }, 2000)
-}, { deep: true })
-
-onUnmounted(() => {
-  if (saveTimeout) {
-    clearTimeout(saveTimeout)
   }
+  try { sessionStorage.setItem(draftKey(props.note.id), JSON.stringify(draft)) } catch { /* Storage may be unavailable. */ }
+  saver.schedule(props.note.id, draft)
+}, { deep: true, flush: 'sync' })
+
+function warnUnsaved(event: BeforeUnloadEvent) {
+  if (saver.hasUnsaved()) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', warnUnsaved))
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', warnUnsaved)
+  void saver.flushAll().catch(() => { void modal.error('笔记保存失败，请检查网络后重试') })
 })
+
+async function retrySave() {
+  try { await saver.flushAll() } catch { /* 错误状态保留，允许重试 */ }
+}
 
 function handleAddTag() {
   if (newTag.value.trim() && !tags.value.includes(newTag.value.trim())) {
@@ -112,25 +148,6 @@ function closeAIAssistant() {
   isGenerating.value = false
 }
 
-function buildMockContent(base: string) {
-  const suffix = customPrompt.value.trim() ? `\n\n要求：${customPrompt.value.trim()}` : ''
-  switch (aiAction.value) {
-    case 'summarize':
-      return `要点总结：\n- ${base.slice(0, 60)}${base.length > 60 ? '…' : ''}${suffix}`
-    case 'translate':
-      return `翻译结果：\n${base}${suffix}`
-    case 'list':
-      return `要点列表：\n- ${base.replace(/\\n+/g, ' ').slice(0, 80)}${suffix}`
-    case 'optimize':
-      return `优化后的内容：\n${base}${suffix}`
-    case 'expand':
-      return `扩展后的内容：\n${base}${suffix}`
-    case 'continue':
-    default:
-      return `续写内容：\n${base}${suffix}`
-  }
-}
-
 async function generateContent() {
   if (!selectedText.value) {
     selectedText.value = content.value || ''
@@ -150,13 +167,13 @@ async function generateContent() {
         targetLanguage: aiAction.value === 'translate' ? '英语' : undefined
       },
       // 流式接收数据
-      (chunk) => {
+      (chunk: string) => {
         generatedContent.value += chunk
       }
     )
   } catch (error) {
     console.error('[NoteEditor] AI生成失败:', error)
-    generatedContent.value = '生成失败，请重试：' + (error.message || error)
+    generatedContent.value = '生成失败，请重试：' + (error instanceof Error ? error.message : String(error))
   } finally {
     isGenerating.value = false
   }
@@ -201,6 +218,7 @@ async function handleAddToKnowledgeBase() {
   
   addingToKb.value = true
   try {
+    await saver.flushAll()
     const res = await addNoteToKnowledgeBase(props.note.id)
     if (res && res.code === 0) {
       await modal.success('已成功添加到知识库')
@@ -223,6 +241,7 @@ async function handlePublishNote() {
 
   publishingNote.value = true
   try {
+    await saver.flushAll()
     const res = await publishNoteSquare({ noteId: props.note.id })
     if (res && res.code === 0) {
       await modal.success('发布成功')
@@ -247,10 +266,13 @@ function handleTagKeydown(event: KeyboardEvent) {
 }
 
 // 修改笔记本
-function handleChangeNotebook(notebookId: string) {
+async function handleChangeNotebook(notebookId: string) {
   if (props.note?.id) {
-    emit('change-notebook', props.note.id, notebookId)
-    showNotebookDropdown.value = false
+    try {
+      await saver.flushAll()
+      emit('change-notebook', props.note.id, notebookId)
+      showNotebookDropdown.value = false
+    } catch { await modal.error('请先重试保存笔记，再移动笔记本') }
   }
 }
 
@@ -310,6 +332,9 @@ function getCurrentNotebookName(): string {
 
       <!-- 元信息：笔记本 / 标签 在左，动作在右 -->
       <div class="wc-ed-meta">
+        <button v-if="saveState === 'error'" class="text-xs text-red-600" @click="retrySave">保存失败，点击重试</button>
+        <span v-else class="text-xs text-gray-500" role="status">{{ saveState === 'saved' ? '已保存' : saveState === 'saving' ? '保存中…' : '等待保存…' }}</span>
+        <span v-if="recoveredDraft" class="text-xs text-amber-700">已恢复本次会话中的草稿</span>
         <!-- 笔记本选择器 -->
         <div class="relative" v-if="notebooks && notebooks.length > 0">
           <Button

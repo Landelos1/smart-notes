@@ -61,7 +61,7 @@ export async function deleteNotebook(notebookId) {
  * @param {number} [params.size=20] - 每页大小
  * @param {string|number} [params.notebookId] - 笔记本ID
  * @param {string} [params.keyword] - 搜索关键词
- * @returns {Promise<{code: number, data: {records: Array, total: number, pages: number}, message: string}>}
+ * @returns {Promise<{code: number, data: {data: Array, records?: Array, total: number}, message: string}>}
  */
 export async function getNotes(params = {}) {
   const query = new URLSearchParams()
@@ -113,6 +113,7 @@ export async function createNote(data) {
  * @param {Object} data - 更新参数
  * @param {string|number} data.noteId - 笔记ID
  * @param {string} data.title - 笔记标题
+ * @param {string|number} [data.notebookId] - 目标笔记本ID
  * @param {string} [data.contentMd] - Markdown内容
  * @param {number} [data.status] - 状态
  * @param {boolean} [data.isPinned] - 是否置顶

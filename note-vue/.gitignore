@@ -39,7 +39,6 @@ temp/
 .vite/
 
 # Package lock files
-package-lock.json
 yarn.lock
 
 # Qoder files

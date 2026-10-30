@@ -18,13 +18,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   import.meta.url
 ).href
 
-interface FileDoc {
-  id: number
-  originalFilename: string
-  fileExtension: string
-  fileSize: number
-  mimeType?: string
-}
+import type { PreviewFile as FileDoc } from '@/types/api'
 
 const props = defineProps<{
   visible: boolean

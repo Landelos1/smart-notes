@@ -145,13 +145,14 @@ async function handleSendMessage(content: string) {
   let enhancedMessage = content
   
   // 如果有文件待读取，先读取文件内容
-  if (chatDialogRef.value?.selectedFiles?.length > 0) {
+  const dialog = chatDialogRef.value
+  if (dialog && dialog.selectedFiles.length > 0) {
     try {
-      const result = await chatDialogRef.value.readSelectedFilesContent()
+      const result = await dialog.readSelectedFilesContent()
       
-      if (result.readCount > 0) {
+      if ((result.readCount ?? 0) > 0) {
         // 提示用户文件已读取
-        const message = `已读取 ${result.readCount} 个文件。${result.failedCount > 0 ? `失败 ${result.failedCount} 个。` : ''}`
+        const message = `已读取 ${result.readCount} 个文件。${(result.failedCount ?? 0) > 0 ? `失败 ${result.failedCount} 个。` : ''}`
         await modal.info(message)
         
         if (!useKnowledge.value) {
@@ -167,12 +168,12 @@ ${content}
           enhancedMessage = `请基于以下文件内容回答问题：${fileContexts.join('\n')}\n\n用户问题：${content}`
           
           // 清空选中的文件
-          chatDialogRef.value.selectedFiles = []
+          dialog.selectedFiles = []
         } else {
-          // 开启知诈6库增强：将文件上传到知识库
+          // 开启知识库增强：将文件上传到知识库
           let uploadSuccess = 0
           let uploadFailed = 0
-          for (const file of chatDialogRef.value.selectedFiles) {
+          for (const file of dialog.selectedFiles) {
             try {
               await uploadDocument(file)
               uploadSuccess++
@@ -185,11 +186,11 @@ ${content}
             await modal.success(`已上传 ${uploadSuccess} 个文件到知识库。${uploadFailed > 0 ? `失败 ${uploadFailed} 个。` : ''}`)
           }
           // 清空选中的文件
-          chatDialogRef.value.selectedFiles = []
+          dialog.selectedFiles = []
         }
       }
       
-      if (result.failedCount > 0) {
+      if ((result.failedCount ?? 0) > 0) {
         console.error('部分文件读取失败:', result.failedFiles)
       }
     } catch (error) {
@@ -303,7 +304,7 @@ ${content}
     await loadSessionMessages(selectedSessionId.value)
 
   } catch (error) {
-    if (error?.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return
     }
     console.error('发送消息失败:', error)

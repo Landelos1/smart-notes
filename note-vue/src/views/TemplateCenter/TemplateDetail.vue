@@ -20,7 +20,7 @@ interface Template {
   description: string
   category: string
   thumbnail: string
-  content: string
+  content?: string
   downloads: number
   rating: number
   views: number

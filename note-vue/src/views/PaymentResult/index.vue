@@ -25,6 +25,8 @@ async function refreshUserInfo() {
 }
 
 async function checkOrderStatus() {
+  loading.value = true
+  errorMessage.value = ''
   const orderNo = route.query.out_trade_no as string
   
   if (!orderNo) {
@@ -138,7 +140,7 @@ onMounted(() => {
           {{ errorMessage || '支付未完成' }}
         </h2>
         <p class="text-gray-600 mb-6">
-          {{ orderInfo ? '订单尚未支付，请完成支付或重新下单' : '请返回会员中心重新操作' }}
+          {{ orderInfo?.status === 0 ? '订单等待支付确认。如果已付款，请稍后刷新查询。' : '请返回会员中心查看订单' }}
         </p>
         
         <!-- 订单信息 -->
@@ -158,6 +160,7 @@ onMounted(() => {
         </div>
         
         <div class="flex gap-3">
+          <button v-if="orderInfo?.status === 0" @click="checkOrderStatus" class="px-4 py-2.5 border border-gray-300 rounded-lg">刷新状态</button>
           <button 
             @click="goHome"
             class="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-colors"

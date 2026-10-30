@@ -47,6 +47,7 @@ export async function apiFetch(path, options = {}) {
       if (res.status === 401) {
         try {
           localStorage.removeItem('satoken');
+          window.dispatchEvent(new Event('session-expired'));
         } catch (e) {
           console.warn('[API] 清除token失败:', e);
         }
@@ -131,6 +132,7 @@ export function uploadFileWithProgress(path, file, fieldName = 'file', onProgres
         if (xhr.status === 401) {
           try {
             localStorage.removeItem('satoken');
+          window.dispatchEvent(new Event('session-expired'));
           } catch (e) {
             console.warn('[API] 清除token失败:', e);
           }

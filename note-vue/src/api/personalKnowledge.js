@@ -141,7 +141,7 @@ export async function rebuildDocumentIndex(fileIds) {
 /**
  * 批量删除文档
  * @param {number[]} fileIds - 文件ID列表
- * @returns {Promise<{code: number, data: null, message: string}>}
+ * @returns {Promise<{code: number, data: {successCount: number, failCount: number}, message: string}>}
  */
 export async function batchDeleteDocuments(fileIds) {
   return apiFetch('/api/documents/files/batch-delete', {

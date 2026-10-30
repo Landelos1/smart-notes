@@ -160,19 +160,34 @@ function handleFileSelect(e: Event) {
 async function handleUpload() {
   if (uploadFiles.value.length === 0) return
   uploading.value = true
+  const failedFiles: File[] = []
+  const errors: string[] = []
+  let storedCount = 0
+  let indexFailures = 0
   
   try {
     for (const file of uploadFiles.value) {
-      const res = await uploadDocument(file)
-      if (res.code !== 0) {
-        await modal.error(`文件 ${file.name} 上传失败: ${res.message}`)
+      try {
+        const res = await uploadDocument(file)
+        if (res.code !== 0) throw new Error(res.message || '上传失败')
+        storedCount++
+        if (res.data?.processingStatus === 'FAILED') indexFailures++
+      } catch (error) {
+        failedFiles.push(file)
+        errors.push(`${file.name}：${error instanceof Error ? error.message : '上传失败'}`)
       }
     }
-    await modal.success('文件上传成功！')
-    showUploadDialog.value = false
-    uploadFiles.value = []
+    showUploadDialog.value = failedFiles.length > 0
+    uploadFiles.value = failedFiles
     // 刷新列表
     await loadDocuments()
+    if (errors.length > 0) {
+      await modal.error(`已上传 ${storedCount} 个文件，${errors.length} 个失败。\n${errors.join('\n')}`)
+    } else if (indexFailures > 0) {
+      await modal.warning(`已上传 ${storedCount} 个文件，其中 ${indexFailures} 个索引未完成。文件可以下载，请重建索引后再使用知识库问答。`)
+    } else {
+      await modal.success(`成功上传并索引 ${storedCount} 个文件`)
+    }
   } catch (error) {
     console.error('上传失败:', error)
     await modal.error('上传失败，请重试')
@@ -256,7 +271,7 @@ function openFilePreview(doc: KBDocument) {
 }
 
 // 从预览弹窗下载文件
-function handlePreviewDownload(doc: KBDocument) {
+function handlePreviewDownload(doc: { id: number, originalFilename: string }) {
   handleDownloadDoc(doc)
 }
 
@@ -316,7 +331,7 @@ async function handleDeleteSingleDoc(doc: KBDocument) {
   }
 }
 
-async function handleDownloadDoc(doc: KBDocument) {
+async function handleDownloadDoc(doc: { id: number, originalFilename: string }) {
   try {
     await downloadDocument(doc.id, doc.originalFilename)
   } catch (error) {
@@ -382,7 +397,7 @@ function getFileTypeColor(fileType: string) {
             <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input v-model="searchQuery" @keypress.enter="loadDocuments" placeholder="搜索文档名、内容关键词…" class="w-full h-9 pl-9 pr-4 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition" />
           </div>
-          <input ref="fileInputRef" type="file" multiple @change="handleFileSelect" class="hidden" accept=".pdf,.md,.doc,.txt" />
+          <input ref="fileInputRef" type="file" multiple @change="handleFileSelect" class="hidden" accept=".pdf,.md,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv" />
           <Button class="h-9 px-4 shrink-0" @click="fileInputRef?.click()"><Upload class="w-4 h-4 mr-2" />上传文档</Button>
           <div class="flex gap-0.5 border border-gray-200 rounded-lg p-0.5 shrink-0">
             <button @click="viewMode = 'list'" :class="['p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:bg-gray-50']"><List class="w-4 h-4" /></button>
@@ -525,7 +540,7 @@ function getFileTypeColor(fileType: string) {
         <h2 class="text-lg font-medium text-gray-900 mb-4">上传文档</h2>
         <div class="space-y-4 mb-4">
           <div>
-            <label class="block text-sm text-gray-700 mb-2">支持格式：PDF, Markdown, DOC, TXT</label>
+            <label class="block text-sm text-gray-700 mb-2">支持格式：PDF、Markdown、Word、TXT、Excel、PowerPoint、CSV</label>
           </div>
           <div>
             <label class="block text-sm text-gray-700 mb-2">已选择文件</label>

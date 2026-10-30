@@ -122,7 +122,7 @@ const showPreviewModal = ref(false)
 const showInviteDialog = ref(false)
 const showShareDialog = ref(false)
 const showRenameDialog = ref(false)
-const previewFile = ref<KnowledgeBaseFile | null>(null)
+const previewFile = ref<import('@/types/api').PreviewFile | null>(null)
 const renamingFile = ref<KnowledgeBaseFile | null>(null)
 const newFileName = ref('')
 const siteOrigin = ref('')
@@ -707,13 +707,14 @@ function openFilePreview(file: KnowledgeBaseFile) {
   // 已加入,正常预览
   const ext = file.originalFilename?.split('.').pop()?.toLowerCase() || ''
   const fileId = Number((file as any).fileId ?? (file as any).id)
-  previewFile.value = { ...file, id: fileId, fileExtension: ext } as any
+  previewFile.value = { id: fileId, originalFilename: file.originalFilename, fileSize: file.fileSize, fileExtension: ext }
   showPreviewModal.value = true
 }
 
 // 从预览弹窗下载文件
-function handlePreviewDownload(file: KnowledgeBaseFile) {
-  handleDownloadFile(file)
+function handlePreviewDownload() {
+  const file = knowledgeBaseFiles.value.find(item => Number((item as any).fileId ?? item.id) === previewFile.value?.id)
+  if (file) void handleDownloadFile(file)
 }
 
 // 下载文件
@@ -981,7 +982,7 @@ onMounted(async () => {
   try {
     const r = await getUserInfo()
     const user = r?.data
-    const uid = user?.id ?? user?.userId ?? user?.user_id
+    const uid = user?.id
     if (uid !== undefined && uid !== null && String(uid).trim() !== '') {
       currentUserId.value = Number(uid)
       try {

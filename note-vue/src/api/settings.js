@@ -2,7 +2,7 @@ import { apiFetch } from './apiClient'
 
 /**
  * 获取AI设置
- * @returns {Promise<{code: number, message: string, data: Object}>}
+ * @returns {Promise<import('../types/api').ApiResponse<import('../types/note').AISettings>>}
  */
 export async function getAISettings() {
   try {

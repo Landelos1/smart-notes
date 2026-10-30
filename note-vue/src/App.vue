@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, provide } from 'vue'
-import { useRoute } from 'vue-router'
+import { defineAsyncComponent, ref, computed, onMounted, onUnmounted, watch, provide } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 // 布局组件
 import NotebookSidebar from './layout/NotebookSidebar.js'
 // 通用组件
-import NoteList from './components/note/NoteList.js'
-import NoteEditor from './components/note/NoteEditor.js'
+const NoteEditor = defineAsyncComponent(() => import('./components/note/NoteEditor.vue'))
 import Button from './components/ui/Button.js'
 import NotebookSelector from './components/ui/NotebookSelector.vue'
-import AIChatPage from './views/AIChat/index.js'
-import TemplateCenterPage from './views/TemplateCenter/index.js'
-import SettingsPage from './views/Settings/index.js'
-import SharedKnowledgeBasePage from './views/SharedKnowledgeBase/index.js'
-import PersonalKnowledgeBasePage from './views/PersonalKnowledgeBase/index.js'
-import RecycleBinPage from './views/RecycleBin/index.vue'
-import MemberSystemPage from './views/MemberSystem/index.vue'
-import NoteSquarePage from './views/NoteSquare/index.vue'
-import NoteSquareFavoritesPage from './views/NoteSquare/Favorites.vue'
-import NoteSquareLikesPage from './views/NoteSquare/Likes.vue'
-import NoteSquareMyNotesPage from './views/NoteSquare/MyNotes.vue'
-import TeamPage from './views/Team/index.js'
-import AuthPage from './views/Auth/index.js'
+const AIChatPage = defineAsyncComponent(() => import('./views/AIChat/index.vue'))
+const TemplateCenterPage = defineAsyncComponent(() => import('./views/TemplateCenter/index.vue'))
+const SettingsPage = defineAsyncComponent(() => import('./views/Settings/index.vue'))
+const SharedKnowledgeBasePage = defineAsyncComponent(() => import('./views/SharedKnowledgeBase/index.vue'))
+const PersonalKnowledgeBasePage = defineAsyncComponent(() => import('./views/PersonalKnowledgeBase/index.vue'))
+const RecycleBinPage = defineAsyncComponent(() => import('./views/RecycleBin/index.vue'))
+const MemberSystemPage = defineAsyncComponent(() => import('./views/MemberSystem/index.vue'))
+const NoteSquarePage = defineAsyncComponent(() => import('./views/NoteSquare/NoteSquarePage.vue'))
+const NoteSquareFavoritesPage = defineAsyncComponent(() => import('./views/NoteSquare/Favorites.vue'))
+const NoteSquareLikesPage = defineAsyncComponent(() => import('./views/NoteSquare/Likes.vue'))
+const NoteSquareMyNotesPage = defineAsyncComponent(() => import('./views/NoteSquare/MyNotes.vue'))
+const TeamPage = defineAsyncComponent(() => import('./views/Team/index.vue'))
+const AuthPage = defineAsyncComponent(() => import('./views/Auth/index.vue'))
+const PaymentResultPage = defineAsyncComponent(() => import('./views/PaymentResult/index.vue'))
 import MemberCenterModal from './components/member/MemberCenterModal.vue'
 // 图标
 import { Menu } from 'lucide-vue-next'
@@ -44,11 +44,11 @@ import { getTemplateById } from './api/template.js'
 import { useModal } from './composables/useModal'
 
 const route = useRoute()
+const router = useRouter()
 const modal = useModal()
 
 // 登录状态
 const isLoggedIn = ref(false)
-const currentUser = ref<{ phone: string; name: string } | null>(null)
 
 // 数据加载状态
 const loading = ref(false)
@@ -58,7 +58,6 @@ const selectedFilter = ref<FilterType>('全部')
 const selectedNoteId = ref<string | null>(null)
 const selectedNoteDetail = ref<Note | null>(null)
 const isSidebarOpen = ref(false)
-const isListOpen = ref(false)
 const currentPage = ref<
   'notes' |
   'note-square' |
@@ -147,7 +146,7 @@ async function loadNotesList(notebookId?: string) {
 async function loadNoteDetail(noteId: string) {
   try {
     const res = await getNoteDetail(noteId)
-    if (res && res.code === 0 && res.data) {
+    if (res && res.code === 0 && res.data && selectedNoteId.value === noteId) {
       selectedNoteDetail.value = transformNote(res.data)
     }
   } catch (error) {
@@ -182,7 +181,7 @@ async function refreshNotesAndNotebooks() {
   if (selectedFilter.value === '全部' || selectedFilter.value === '最近7天') {
     await loadNotesList()
   } else {
-    const notebook = notebooks.value.find(nb => nb.name === selectedFilter.value)
+    const notebook = notebooks.value.find(nb => nb.id === selectedFilter.value)
     if (notebook) {
       await loadNotesList(notebook.id)
     }
@@ -194,27 +193,14 @@ provide('notifyRecycleBinRefresh', notifyRecycleBinRefresh)
 provide('refreshNotesAndNotebooks', refreshNotesAndNotebooks)
 
 // 登录处理
-function handleLogin(phone: string, password: string) {
-  console.log('登录:', phone, password)
+function handleLogin() {
   isLoggedIn.value = true
-  currentUser.value = { phone, name: '用户' }
-  // 登录后加载数据
-  initData()
-}
-
-// 注册处理
-function handleRegister(phone: string, password: string, name: string) {
-  // 模拟注册
-  console.log('注册:', phone, password, name)
-  isLoggedIn.value = true
-  currentUser.value = { phone, name }
 }
 
 // 登出处理
 function handleLogout() {
   isLoggedIn.value = false
-  currentUser.value = null
-  currentPage.value = 'notes'
+  void router.replace({ name: 'Auth' })
 }
 
 async function handleExportNote(note: Note) {
@@ -371,7 +357,6 @@ async function handleCreateNote() {
   }
   
   isSidebarOpen.value = false
-  isListOpen.value = false
 }
 
 // 显示笔记本选择器
@@ -402,32 +387,22 @@ function handleNotebookSelectorCancel() {
 }
 
 // 更新笔记
-async function handleUpdateNote(updates: Partial<Note>) {
-  if (!selectedNoteId.value || !selectedNoteDetail.value) return
-  
-  // 先更新本地状态以提供即时反馈
-  const updatedNote = { ...selectedNoteDetail.value, ...updates }
-  selectedNoteDetail.value = updatedNote
-  notes.value = notes.value.map(note => 
-    note.id === selectedNoteId.value 
-      ? updatedNote
-      : note
-  )
-
-  // 调用API保存到后端
-  try {
-    await apiUpdateNote({
-      noteId: Number(selectedNoteId.value),
-      title: updatedNote.title || '无标题笔记',
-      contentMd: updatedNote.content,
-      status: 1,
-      isPinned: updatedNote.isPinned,
-      tags: updatedNote.tags
-    })
-    console.log('[App] 笔记更新成功')
-  } catch (error) {
-    console.error('[App] 更新笔记失败:', error)
-  }
+async function handleUpdateNote(noteId: string, updates: Partial<Note>) {
+  const existing = selectedNoteDetail.value?.id === noteId
+    ? selectedNoteDetail.value : notes.value.find(note => note.id === noteId)
+  if (!existing) throw new Error('笔记已移除，无法保存')
+  const updatedNote = { ...existing, ...updates }
+  // 只更新对应的笔记，不能使用当前选择的 ID 保存旧编辑器的草稿。
+  if (selectedNoteDetail.value?.id === noteId) selectedNoteDetail.value = updatedNote
+  notes.value = notes.value.map(note => note.id === noteId ? updatedNote : note)
+  const result = await apiUpdateNote({
+    noteId: Number(noteId),
+    title: updatedNote.title || '无标题笔记',
+    contentMd: updatedNote.content,
+    isPinned: updatedNote.isPinned,
+    tags: updatedNote.tags
+  })
+  if (result?.code !== 0) throw new Error(result?.message || '保存笔记失败')
 }
 
 async function handleCreateNotebook() {
@@ -545,16 +520,18 @@ async function handleDeleteNote(noteId: string) {
 async function handleChangeNotebook(noteId: string, notebookId: string) {
   try {
     // 调用更新API
-    const note = notes.value.find(n => n.id === noteId)
+    const note = selectedNoteDetail.value?.id === noteId ? selectedNoteDetail.value : notes.value.find(n => n.id === noteId)
     if (!note) return
     
-    await apiUpdateNote({
+    const result = await apiUpdateNote({
       noteId: Number(noteId),
       title: note.title || '无标题笔记',
+      notebookId: Number(notebookId),
       contentMd: note.content || '',
       isPinned: note.isPinned || false,
       tags: note.tags || []
     })
+    if (result?.code !== 0) throw new Error(result?.message || '移动笔记失败')
     
     // 更新本地状态
     notes.value = notes.value.map(n =>
@@ -569,14 +546,14 @@ async function handleChangeNotebook(noteId: string, notebookId: string) {
     console.log('[App] 修改笔记本成功')
   } catch (error) {
     console.error('[App] 修改笔记本失败:', error)
+    await modal.error(error instanceof Error ? error.message : '移动笔记失败，请重试')
   }
 }
 
 // 选择笔记
 async function handleSelectNote(note: Note) {
   selectedNoteId.value = note.id
-  currentPage.value = 'notes'
-  isListOpen.value = false
+  handleNavigate('notes')
   // 加载完整笔记详情
   await loadNoteDetail(note.id)
 }
@@ -584,14 +561,14 @@ async function handleSelectNote(note: Note) {
 // 处理模板使用
 async function handleUseTemplate(template: Template) {
   if (!template?.id) return
-  currentPage.value = 'notes'
+  handleNavigate('notes')
   await handleCreateNoteFromTemplate(String(template.id))
 }
 
 // 处理过滤变更
 async function handleFilterChange(filter: FilterType) {
   selectedFilter.value = filter
-  currentPage.value = 'notes'
+  handleNavigate('notes')
   // 根据筛选条件重新加载笔记
   if (filter !== '全部' && filter !== '最近7天') {
     await loadNotesList(filter)
@@ -618,6 +595,22 @@ function handleNavigate(page:
 ) {
   currentPage.value = page
   isSidebarOpen.value = false
+  const routeNameByPage = {
+    notes: 'Notes',
+    'note-square': 'NoteSquare',
+    'note-favorites': 'NoteSquareFavorites',
+    'note-likes': 'NoteSquareLikes',
+    'note-my-notes': 'NoteSquareMine',
+    team: 'Team',
+    'ai-chat': 'AIChat',
+    'template-center': 'TemplateCenter',
+    settings: 'Settings',
+    'shared-knowledge-base': 'SharedKnowledgeBase',
+    'personal-knowledge-base': 'PersonalKnowledgeBase',
+    'recycle-bin': 'RecycleBin',
+    'member-system': 'MemberSystem'
+  } as const
+  void router.push({ name: routeNameByPage[page] })
   // 切换到回收站页面时增加key值，强制组件重新加载
   if (page === 'recycle-bin') {
     recycleBinKey.value++
@@ -635,7 +628,6 @@ async function handleItemRestored() {
 // 关闭遮罩
 function handleOverlayClick() {
   isSidebarOpen.value = false
-  isListOpen.value = false
 }
 
 // 当前选中的笔记（使用详情数据）
@@ -649,26 +641,19 @@ try {
   }
 } catch {}
 
+function handleSessionExpired() {
+  isLoggedIn.value = false
+  void router.replace({ name: 'Auth' })
+}
+onMounted(() => window.addEventListener('session-expired', handleSessionExpired))
+onUnmounted(() => window.removeEventListener('session-expired', handleSessionExpired))
+
 // 页面加载时初始化数据
 onMounted(() => {
   if (isLoggedIn.value) {
     initData()
   }
-  // __TEMP_PREVIEW__ 仅供本地视觉走查，上线前删除
-  if (import.meta.env.DEV) {
-    const q = new URLSearchParams(window.location.search)
-    const p = q.get('__page')
-    if (p) {
-      setTimeout(() => handleNavigate(p as any), 400)
-    }
-    const nid = q.get('__note')
-    if (nid) {
-      setTimeout(() => {
-        const hit = notes.value.find((n: any) => String(n.id) === nid)
-        if (hit) handleSelectNote(hit as any)
-      }, 1200)
-    }
-  }
+
 })
 
 // 监听登录状态变化
@@ -683,10 +668,25 @@ watch(isLoggedIn, (newVal) => {
   }
 })
 
-// 本项目使用 currentPage 切换视图，需要显式接入模板分享路由。
-watch([() => route.name, isLoggedIn], ([name, loggedIn]) => {
-  if (name === 'TemplateCenter' && loggedIn) {
-    currentPage.value = 'template-center'
+const pageByRouteName: Record<string, typeof currentPage.value> = {
+  Notes: 'notes',
+  NoteSquare: 'note-square',
+  NoteSquareFavorites: 'note-favorites',
+  NoteSquareLikes: 'note-likes',
+  NoteSquareMine: 'note-my-notes',
+  Team: 'team',
+  AIChat: 'ai-chat',
+  TemplateCenter: 'template-center',
+  Settings: 'settings',
+  SharedKnowledgeBase: 'shared-knowledge-base',
+  PersonalKnowledgeBase: 'personal-knowledge-base',
+  RecycleBin: 'recycle-bin',
+  MemberSystem: 'member-system'
+}
+
+watch(() => route.name, (name) => {
+  if (typeof name === 'string' && pageByRouteName[name]) {
+    currentPage.value = pageByRouteName[name]
   }
 }, { immediate: true })
 
@@ -698,7 +698,7 @@ watch(() => route.query.templateId, async (templateId, oldTemplateId) => {
     // 清除URL中的templateId参数,避免刷新页面时重复创建
     const { templateId: _, ...queryWithoutTemplateId } = route.query
     if (Object.keys(queryWithoutTemplateId).length === 0) {
-      window.history.replaceState({}, '', '/')
+      await router.replace({ name: 'Notes', query: queryWithoutTemplateId })
     }
   }
 })
@@ -747,7 +747,7 @@ ${template.description}
         notes.value = [newNote, ...notes.value]
         selectedNoteId.value = newNote.id
         selectedNoteDetail.value = newNote
-        currentPage.value = 'notes'
+        handleNavigate('notes')
         // 更新笔记本的笔记数量
         await loadNotebooks()
         console.log('[App] 从模板创建笔记成功')
@@ -761,17 +761,17 @@ ${template.description}
 
 <template>
   <!-- 未登录时显示登录页 -->
+  <PaymentResultPage v-if="route.name === 'PaymentResult'" />
   <AuthPage 
-    v-if="!isLoggedIn" 
+    v-else-if="!isLoggedIn"
     @login="handleLogin" 
-    @register="handleRegister" 
   />
 
   <!-- 已登录时显示主应用 -->
   <div v-else class="h-screen flex bg-[var(--wc-bg,#fbf8f2)] overflow-hidden">
     <!-- 移动端遮罩 -->
     <div 
-      v-if="isSidebarOpen || isListOpen"
+      v-if="isSidebarOpen"
       class="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
       @click="handleOverlayClick"
     />
@@ -812,18 +812,12 @@ ${template.description}
           <Button
             variant="ghost"
             size="sm"
+            aria-label="打开导航菜单"
             @click="isSidebarOpen = !isSidebarOpen"
           >
             <Menu class="w-5 h-5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            @click="isListOpen = !isListOpen"
-          >
-            <Menu class="w-5 h-5" />
-            <span class="ml-2">笔记列表</span>
-          </Button>
+
         </div>
 
         <!-- 编辑器 -->
@@ -831,7 +825,7 @@ ${template.description}
           <NoteEditor 
             :note="selectedNote"
             :notebooks="notebooks"
-            @update="handleUpdateNote"
+            :save-note="handleUpdateNote"
             @change-notebook="handleChangeNotebook"
             @create-note="handleCreateNote"
             @open-template="handleNavigate('template-center')"
@@ -861,6 +855,13 @@ ${template.description}
       class="flex-1 min-w-0"
       @use-template="handleUseTemplate" 
     />
+
+    <Button
+      v-if="currentPage !== 'notes' && !isSidebarOpen"
+      class="fixed bottom-4 left-4 z-20 shadow-lg lg:hidden"
+      aria-label="打开导航菜单"
+      @click="isSidebarOpen = true"
+    ><Menu class="w-5 h-5 mr-2" />菜单</Button>
 
     <!-- 笔记本选择器弹窗 -->
     <NotebookSelector

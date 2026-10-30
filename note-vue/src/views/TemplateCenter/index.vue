@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Grid3x3, List, Star, Download, Eye, Clock, TrendingUp, Plus, X } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
 import TemplateDetailPage from './TemplateDetail.vue'
-import { getTemplates, getTemplateById, useTemplate, createTemplate, getMyTemplates, getFavoriteTemplates } from '@/api/template'
+import { getTemplates, getTemplateById, useTemplate, createTemplate, getFavoriteTemplates } from '@/api/template'
 import { uploadFile } from '@/api/apiClient'
 import { useModal } from '@/composables/useModal'
 
@@ -302,34 +302,19 @@ async function submitTemplate() {
   }
 }
 
-// 组件加载时获取数据
+function handleTemplateSelection(e: Event) {
+  const customEvent = e as CustomEvent
+  if (customEvent.detail) handleSelectTemplate(customEvent.detail)
+}
+
 onMounted(() => {
   loadTemplates()
-  
-  // 监听自定义事件：从相关模板点击切换
-  window.addEventListener('select-template', (e: Event) => {
-    const customEvent = e as CustomEvent
-    if (customEvent.detail) {
-      handleSelectTemplate(customEvent.detail)
-    }
-  })
+  window.addEventListener('select-template', handleTemplateSelection)
+})
 
-  // __TEMP_PREVIEW__ 仅供本地视觉走查，上线前删除
-  if (import.meta.env.DEV) {
-    const tid = new URLSearchParams(location.search).get('__template')
-    if (tid) {
-      setTimeout(async () => {
-        const res = await getTemplateById(tid) as any
-        if (res?.code === 0 && res.data) {
-          handleSelectTemplate({
-            ...res.data,
-            updatedAt: res.data.updatedAt ? new Date(res.data.updatedAt) : new Date(),
-            tags: res.data.tags || []
-          } as any)
-        }
-      }, 800)
-    }
-  }
+onUnmounted(() => {
+  window.removeEventListener('select-template', handleTemplateSelection)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 </script>
 
@@ -344,9 +329,9 @@ onMounted(() => {
     />
 
     <!-- 模板列表页 -->
-    <div v-else class="h-full flex flex-col bg-gray-50">
+    <div v-else class="h-full flex flex-col min-h-0 bg-gray-50">
       <!-- Header -->
-      <div class="bg-white border-b border-gray-200 p-6">
+      <div class="bg-white border-b border-gray-200 p-4 md:p-6">
         <div class="w-full">
           <h1 class="mb-4">模板中心</h1>
           <p class="text-gray-600 mb-6">
@@ -354,8 +339,8 @@ onMounted(() => {
           </p>
 
         <!-- Search bar -->
-        <div class="flex gap-4 items-center">
-          <div class="flex-1 relative">
+        <div class="flex flex-wrap gap-4 items-center">
+          <div class="w-full md:w-auto md:flex-1 relative">
             <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="text"
@@ -395,19 +380,19 @@ onMounted(() => {
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-hidden">
-      <div class="w-full h-full flex gap-6 p-6">
+    <div class="flex-1 min-h-0 overflow-hidden">
+      <div class="w-full h-full flex flex-col md:flex-row gap-4 md:gap-6 p-4 md:p-6">
         <!-- Categories sidebar -->
-        <div class="w-56 flex-shrink-0">
+        <div class="w-full md:w-56 flex-shrink-0">
           <div class="bg-white rounded-lg border border-gray-200 p-4">
             <h3 class="mb-3 text-gray-700">分类</h3>
-            <div class="space-y-1">
+            <div class="flex gap-2 overflow-x-auto md:block md:space-y-1">
               <button
                 v-for="category in categories"
                 :key="category.id"
                 @click="selectedCategory = category.id"
                 :class="[
-                  'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
+                  'shrink-0 md:w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors whitespace-nowrap',
                   selectedCategory === category.id
                     ? 'bg-blue-50 text-blue-600'
                     : 'hover:bg-gray-50 text-gray-700'
@@ -421,7 +406,7 @@ onMounted(() => {
         </div>
 
         <!-- Templates grid/list -->
-        <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
           <div class="flex-1 overflow-y-auto">
             <div v-if="filteredTemplates.length === 0" class="h-full flex items-center justify-center text-gray-400">
               <div class="text-center">

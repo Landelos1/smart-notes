@@ -96,7 +96,7 @@ export async function logout() {
 
 /**
  * 获取当前登录用户信息
- * @returns {Promise<{code: number, message: string, data: Object}>}
+ * @returns {Promise<import('../types/api').ApiResponse<import('../types/api').UserInfo>>}
  */
 export async function getUserInfo() {
   try {

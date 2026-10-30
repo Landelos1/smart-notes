@@ -487,11 +487,6 @@ async function handleRestoreVersion(eventId: string) {
 }
 
 onMounted(async () => {
-  // __TEMP_PREVIEW__ 仅供本地视觉走查，上线前删除
-  if (import.meta.env.DEV) {
-    const v = new URLSearchParams(location.search).get('__view')
-    if (v === 'ai' || v === 'members' || v === 'notes') currentView.value = v
-  }
   await loadTeamInfo()
   await loadDocs()
   
@@ -661,7 +656,7 @@ async function handleTakeLock() {
         currentLockToken.value = res.data.lockToken || ''
         isEditing.value = true
         // 更新本地文档的锁状态
-        const idx = notes.value.findIndex(n => n.id === selectedNote.value.id)
+        const idx = notes.value.findIndex(n => n.id === selectedNote.value?.id)
         if (idx >= 0) {
           notes.value[idx].lockedBy = selectedNote.value.updatedByUser?.id
           notes.value[idx].lockToken = res.data.lockToken
