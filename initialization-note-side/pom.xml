@@ -276,7 +276,6 @@
                 <version>${spring-boot.version}</version>
                 <configuration>
                     <mainClass>com.ldd.initialization.InitializationApplication</mainClass>
-                    <skip>true</skip>
                 </configuration>
                 <executions>
                     <execution>
