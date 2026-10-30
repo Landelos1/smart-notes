@@ -72,21 +72,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         log.info("[用户注册] 开始注册, 手机号: {}, 角色类型: {}", phone, roleType);
 
         // 校验验证码
-        // todo
         String storedCaptcha = redisTemplate.opsForValue().get(CAPTCHA_PREFIX + captchaId);
-        // if (storedCaptcha == null || !storedCaptcha.equalsIgnoreCase(captcha)) {
-        // throw new BizException("验证码错误或已过期");
-        // }
-        // if (roleType == RoleType.ADMIN.getValue()) {
-        // throw new BizException("管理员权限不允许注册");
-        // }
+        if (storedCaptcha == null || !storedCaptcha.equalsIgnoreCase(captcha)) {
+            throw new BizException("验证码错误或已过期");
+        }
+        if (roleType != 1 && roleType != 2) {
+            throw new BizException("不允许注册该角色");
+        }
 
-        // 检查手机号是否重复：手机号必须全局唯一，不能按角色分组
-        // （曾经按 phone + role_type 判重，导致同一手机号可再注册另一角色，登录时按手机号
-        //   查询会命中 2 条，MyBatis selectOne 直接抛 TooManyResultsException）
-        if (count(new QueryWrapper<User>().eq("phone", phone)) > 0) {
-            log.warn("[用户注册] 手机号已被注册: {}", phone);
-            throw new BizException("手机号已被注册");
+        // 普通用户和管理员可使用同一手机号；同一角色内保持唯一。
+        if (count(new QueryWrapper<User>().eq("phone", phone).eq("role_type", roleType)) > 0) {
+            log.warn("[用户注册] 手机号在该角色下已被注册: {}, 角色: {}", phone, roleType);
+            throw new BizException("该手机号已注册此类型账号");
         }
 
         // 创建用户
@@ -125,9 +122,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BizException("验证码错误或已过期");
         }
 
-        // 查询用户：用 list 而不是 getOne。
-        // 手机上若存在历史重复数据，getOne 会抛 TooManyResultsException（接口直接 500），
-        // 这里按请求角色精确挑出目标账号，既兼容脏数据又能给出准确的错误提示。
+        // 同一手机号可以拥有不同角色，按登录入口请求的角色精确选择账号。
         List<User> candidates = list(new QueryWrapper<User>().eq("phone", phone));
         if (candidates.isEmpty()) {
             log.warn("[用户登录] 用户不存在, 手机号: {}", phone);
@@ -165,6 +160,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (Objects.equals(user.getStatus(), StatusEnum.DISABLED.getCode())) {
             log.warn("[用户登录] 账号已被禁用, 用户ID: {}", user.getId());
             throw new BizException("账号已被禁用");
+        }
+        if (!Objects.equals(user.getStatus(), StatusEnum.ENABLED.getCode())) {
+            throw new BizException("账号待审核，请联系管理员");
         }
 
         String roleTypeStr = RoleType.getDescByValue(user.getRoleType());
@@ -307,9 +305,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BizException("请求参数不能为空");
         }
 
-        // 检查手机号是否重复（不区分角色）
-        if (count(new QueryWrapper<User>().eq("phone", request.getPhone())) > 0) {
-            throw new BizException("手机号已被注册");
+        if (count(new QueryWrapper<User>().eq("phone", request.getPhone())
+                .eq("role_type", request.getRoleType())) > 0) {
+            throw new BizException("该手机号已注册此类型账号");
         }
 
         User user = new User();
@@ -343,6 +341,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         User user = getById(userId);
         if (user == null) {
             throw new BizException("用户不存在");
+        }
+
+        if (request.getRoleType() != null && !Objects.equals(request.getRoleType(), user.getRoleType())
+                && count(new QueryWrapper<User>().eq("phone", user.getPhone())
+                        .eq("role_type", request.getRoleType()).ne("id", userId)) > 0) {
+            throw new BizException("该手机号已注册此类型账号，不能合并角色");
         }
 
         if (StrUtil.isNotBlank(request.getUsername())) {

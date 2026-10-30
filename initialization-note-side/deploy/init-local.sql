@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS public.t_user (
     id bigserial PRIMARY KEY,
-    phone varchar(11) NOT NULL UNIQUE,
+    phone varchar(11) NOT NULL,
     password varchar(100),
     role_type integer NOT NULL DEFAULT 1,
     username varchar(50), avatar_url text, real_name varchar(50), id_card varchar(18),
@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS public.t_user (
     status integer DEFAULT 1,
     last_login_time timestamp,
     create_time timestamp DEFAULT CURRENT_TIMESTAMP,
-    update_time timestamp DEFAULT CURRENT_TIMESTAMP
+    update_time timestamp DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT t_user_phone_role_key UNIQUE (phone, role_type)
 );
 
 CREATE TABLE IF NOT EXISTS public.t_notebook (

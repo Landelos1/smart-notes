@@ -19,6 +19,9 @@ public class NoteUpdateDTO {
     @NotNull(message = "笔记ID不能为空")
     private Long noteId;
 
+    /** 可选：移动到当前笔记所有者的另一个笔记本。 */
+    private Long notebookId;
+
     /**
      * 笔记标题
      */
@@ -45,4 +48,4 @@ public class NoteUpdateDTO {
      * 标签列表
      */
     private List<String> tags;
-} 
+}

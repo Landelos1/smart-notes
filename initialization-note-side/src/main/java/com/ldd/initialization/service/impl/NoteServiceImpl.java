@@ -170,6 +170,11 @@ public class NoteServiceImpl extends ServiceImpl<NoteMapper, Note> implements No
             throw new BizException(BizResponseCode.ERROR_1, "笔记不存在或无权限");
         }
 
+        if (updateDTO.getNotebookId() != null
+                && !notebookService.isNotebookOwner(updateDTO.getNotebookId(), note.getUserId())) {
+            throw new BizException(BizResponseCode.ERROR_1, "目标笔记本不存在或无权限");
+        }
+
         // 更新笔记信息
         BeanUtils.copyProperties(updateDTO, note);
         note.setWordCount(calculateWordCount(updateDTO.getContentMd()));

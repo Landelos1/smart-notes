@@ -150,12 +150,11 @@ public class CommonController {
     /**
      * 文件上传（特殊情况使用MultipartFile）
      */
-    @SaIgnore
+    @SaCheckLogin
     @PostMapping("/file/upload")
     public Result<FileUpInfo> uploadFile(@RequestParam("file") MultipartFile file) {
 
-        // Long userId = Long.valueOf(StpUtil.getLoginId().toString());
-        Long userId = 1L;
+        Long userId = StpUtil.getLoginIdAsLong();
         FileUpInfo fileInfo = fileInfoService.uploadFile(file, userId);
         return Result.success(fileInfo);
     }
