@@ -1,0 +1,308 @@
+openapi: 3.0.3
+info:
+  title: 智能知识库系统 API
+  version: 0.1.0
+  description: 基于现有后端实现的REST API与扩展端点
+servers:
+  - url: http://localhost:8080
+components:
+  securitySchemes:
+    satoken:
+      type: apiKey
+      in: header
+      name: satoken
+  schemas:
+    Result:
+      type: object
+      properties:
+        code: { type: integer, example: 0 }
+        message: { type: string, example: 成功 }
+        data: {}
+    PageResult:
+      type: object
+      properties:
+        total: { type: integer, example: 100 }
+        data:
+          type: array
+          items: {}
+    LoginDTO:
+      type: object
+      required: [phone, password, captcha, captchaId, roleType]
+      properties:
+        phone: { type: string, pattern: '^\\d{11}$' }
+        password: { type: string, minLength: 6, maxLength: 20 }
+        captcha: { type: string }
+        captchaId: { type: string }
+        roleType: { type: integer, enum: [1,2,3] }
+    RegisterDTO:
+      type: object
+      required: [phone, password, captcha, captchaId, roleType]
+      properties:
+        phone: { type: string, pattern: '^\\d{11}$' }
+        password: { type: string, minLength: 6, maxLength: 20 }
+        captcha: { type: string }
+        captchaId: { type: string }
+        roleType: { type: integer, enum: [1,2,3] }
+    NoteCreateDTO:
+      type: object
+      required: [notebookId, title]
+      properties:
+        notebookId: { type: integer }
+        title: { type: string, maxLength: 255 }
+        contentMd: { type: string }
+        status: { type: integer, enum: [0,1] }
+        isPinned: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+    NoteUpdateDTO:
+      type: object
+      required: [noteId, title]
+      properties:
+        noteId: { type: integer }
+        title: { type: string, maxLength: 255 }
+        contentMd: { type: string }
+        status: { type: integer, enum: [0,1] }
+        isPinned: { type: boolean }
+        tags:
+          type: array
+          items: { type: string }
+    FileListRequestDTO:
+      type: object
+      properties:
+        page: { type: integer, default: 1 }
+        size: { type: integer, default: 10 }
+        keyword: { type: string }
+        fileType: { type: string }
+        sortBy: { type: string, default: create_time }
+        sortOrder: { type: string, default: desc, enum: [asc, desc] }
+    SharedKnowledgeBaseCreateDTO:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 128 }
+        description: { type: string, maxLength: 2000 }
+        coverUrl: { type: string, maxLength: 255 }
+        password: { type: string, maxLength: 20 }
+        isPublic: { type: boolean, default: true }
+        initialFileIds:
+          type: array
+          items: { type: integer }
+    SharedKnowledgeBaseUpdateDTO:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 128 }
+        description: { type: string, maxLength: 2000 }
+        coverUrl: { type: string, maxLength: 255 }
+        password: { type: string, maxLength: 20 }
+        isPublic: { type: boolean }
+    KnowledgeBaseSearchDTO:
+      type: object
+      properties:
+        keyword: { type: string }
+        sortBy: { type: string, default: create_time, enum: [create_time, member_count, file_count] }
+        sortOrder: { type: string, default: desc, enum: [asc, desc] }
+        page: { type: integer, default: 1 }
+        size: { type: integer, default: 10 }
+        onlyPublic: { type: boolean, default: true }
+    KnowledgeBaseJoinDTO:
+      type: object
+      required: [knowledgeBaseId]
+      properties:
+        knowledgeBaseId: { type: integer }
+        password: { type: string }
+    KnowledgeBaseFileUploadDTO:
+      type: object
+      required: [knowledgeBaseId]
+      properties:
+        knowledgeBaseId: { type: integer }
+        fileIds:
+          type: array
+          items: { type: integer }
+        sourceType: { type: integer, enum: [1,2], default: 1 }
+    ChatRequestDTO:
+      type: object
+      required: [memoryId, message]
+      properties:
+        memoryId: { type: string }
+        message: { type: string }
+paths:
+  /api/common/login:
+    post:
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginDTO' }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Result' }
+  /api/common/register:
+    post:
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterDTO' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/common/captcha:
+    get:
+      summary: 获取验证码
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/notes:
+    get:
+      summary: 分页查询笔记（扩展筛选）
+      security: [ { satoken: [] } ]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: size, in: query, schema: { type: integer, default: 10 } }
+        - { name: notebookId, in: query, schema: { type: integer } }
+        - { name: keyword, in: query, schema: { type: string } }
+        - { name: tags, in: query, schema: { type: string, description: '逗号分隔' } }
+        - { name: status, in: query, schema: { type: integer, enum: [0,1] } }
+        - { name: isPinned, in: query, schema: { type: boolean } }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+    post:
+      summary: 创建笔记
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NoteCreateDTO' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/notes/update:
+    post:
+      summary: 更新笔记
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NoteUpdateDTO' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/documents/upload:
+    post:
+      summary: 上传文档（自动转PDF并向量化）
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/documents/files/list:
+    post:
+      summary: 获取用户文件列表
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FileListRequestDTO' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/documents/files/{fileId}/download:
+    get:
+      summary: 下载用户文件（新增）
+      security: [ { satoken: [] } ]
+      parameters:
+        - { name: fileId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 文件下载
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '400':
+          description: 错误
+          content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } }
+  /api/shared-knowledge-base/square:
+    get:
+      summary: 知识库广场
+      security: [ { satoken: [] } ]
+      parameters:
+        - { name: keyword, in: query, schema: { type: string } }
+        - { name: sortBy, in: query, schema: { type: string, enum: [create_time, member_count, file_count] } }
+        - { name: sortOrder, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: size, in: query, schema: { type: integer, default: 10 } }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/shared-knowledge-base/{knowledgeBaseId}/stats:
+    get:
+      summary: 知识库统计（新增）
+      security: [ { satoken: [] } ]
+      parameters:
+        - { name: knowledgeBaseId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/Result' } } } }
+  /api/chat/stream:
+    post:
+      summary: 通用流式聊天
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatRequestDTO' }
+      responses:
+        '200':
+          description: SSE 文本流
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /api/chat/stream/personal:
+    post:
+      summary: 个人知识库流式聊天（新增）
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChatRequestDTO' }
+      responses:
+        '200':
+          description: SSE 文本流
+          content:
+            text/event-stream:
+              schema: { type: string }
+  /api/chat/stream-with-citations:
+    post:
+      summary: 带引用的流式聊天（新增）
+      security: [ { satoken: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [memoryId, message]
+              properties:
+                memoryId: { type: string }
+                message: { type: string }
+                topK: { type: integer, default: 5 }
+      responses:
+        '200':
+          description: SSE 文本与引用事件
+          content:
+            text/event-stream:
+              schema: { type: string }
+

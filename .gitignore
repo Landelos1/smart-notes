@@ -35,3 +35,16 @@ Thumbs.db
 *.log
 /logs/
 **/data/
+
+# Local package-manager leftovers from an interrupted pnpm install.
+**/node_modules.broken/
+
+# Vite config temp files.
+**/vite.config.js.timestamp-*.mjs
+
+# Backend classpath dump generated for local launches.
+/initialization-note-side/cp.txt
+
+# Root-level copies; the canonical versions live under docs/.
+/接口目录.md
+/数据字段字典.md

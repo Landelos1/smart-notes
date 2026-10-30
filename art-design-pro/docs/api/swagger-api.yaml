@@ -1,0 +1,2076 @@
+openapi: 3.0.3
+info:
+  title: 智能知识库系统 API
+  version: 1.0.0
+  description: |
+    智能知识库系统完整REST API文档
+    
+    ## 技术栈
+    - 框架：Spring Boot 3、MyBatis-Plus、Sa-Token、Redis
+    - 统一响应：Result<T>，成功code=0，失败code=-1
+    - 分页响应：PageResult<T>，含data列表和total总数
+    - 鉴权：Sa-Token令牌，通过请求头satoken传递
+    - 流式输出：SSE，Content-Type: text/event-stream
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: 本地开发服务器
+
+tags:
+  - name: 通用模块
+    description: 用户认证、文件上传等通用接口
+  - name: 笔记模块
+    description: 笔记的增删改查操作
+  - name: 笔记本模块
+    description: 笔记本管理
+  - name: 文档模块
+    description: 文档上传与管理
+  - name: 共享知识库
+    description: 共享知识库管理
+  - name: 聊天模块
+    description: AI流式聊天
+  - name: 设置模块
+    description: 用户AI设置
+  - name: 模板模块
+    description: 模板中心
+
+components:
+  securitySchemes:
+    satoken:
+      type: apiKey
+      in: header
+      name: satoken
+      description: Sa-Token认证令牌
+
+  schemas:
+    # 通用响应
+    Result:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+          description: 状态码，0表示成功，-1表示失败
+        message:
+          type: string
+          example: 成功
+          description: 响应消息
+        data:
+          description: 响应数据
+
+    PageResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+          description: 总记录数
+        data:
+          type: array
+          items: {}
+          description: 数据列表
+
+    # 用户相关
+    LoginDTO:
+      type: object
+      required: [phone, password, captcha, captchaId, roleType]
+      properties:
+        phone:
+          type: string
+          pattern: '^\d{11}$'
+          example: "13800138000"
+          description: 11位手机号
+        password:
+          type: string
+          minLength: 6
+          maxLength: 20
+          description: 密码6-20位
+        captcha:
+          type: string
+          description: 验证码
+        captchaId:
+          type: string
+          description: 验证码ID
+        roleType:
+          type: integer
+          enum: [1, 2, 3]
+          description: 角色类型
+
+    RegisterDTO:
+      type: object
+      required: [phone, password, captcha, captchaId, roleType]
+      properties:
+        phone:
+          type: string
+          pattern: '^\d{11}$'
+        password:
+          type: string
+          minLength: 6
+          maxLength: 20
+        captcha:
+          type: string
+        captchaId:
+          type: string
+        roleType:
+          type: integer
+          enum: [1, 2, 3]
+        username:
+          type: string
+        avatarUrl:
+          type: string
+
+    CaptchaVO:
+      type: object
+      properties:
+        captchaId:
+          type: string
+        imageBase64:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        phone:
+          type: string
+        roleType:
+          type: integer
+        username:
+          type: string
+        avatarUrl:
+          type: string
+        realName:
+          type: string
+        gender:
+          type: integer
+        status:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+        updateTime:
+          type: string
+          format: date-time
+
+    # 笔记相关
+    NoteCreateDTO:
+      type: object
+      required: [notebookId, title]
+      properties:
+        notebookId:
+          type: integer
+          description: 笔记本ID
+        title:
+          type: string
+          maxLength: 255
+          description: 笔记标题
+        contentMd:
+          type: string
+          description: Markdown内容
+        status:
+          type: integer
+          enum: [0, 1]
+          description: 状态 0-草稿 1-发布
+        isPinned:
+          type: boolean
+          description: 是否置顶
+        tags:
+          type: array
+          items:
+            type: string
+          description: 标签列表
+
+    NoteUpdateDTO:
+      type: object
+      required: [noteId, title]
+      properties:
+        noteId:
+          type: integer
+        title:
+          type: string
+          maxLength: 255
+        contentMd:
+          type: string
+        status:
+          type: integer
+          enum: [0, 1]
+        isPinned:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+
+    NoteAutoSaveDTO:
+      type: object
+      required: [noteId]
+      properties:
+        noteId:
+          type: integer
+        contentMd:
+          type: string
+
+    NoteBriefVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        summary:
+          type: string
+        isPinned:
+          type: boolean
+        status:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+
+    NoteDetailVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        notebookId:
+          type: integer
+        title:
+          type: string
+        contentMd:
+          type: string
+        status:
+          type: integer
+        isPinned:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        createTime:
+          type: string
+          format: date-time
+
+    # 笔记本相关
+    NotebookCreateDTO:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        cover:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 512
+        sortOrder:
+          type: integer
+
+    NotebookVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        cover:
+          type: string
+        description:
+          type: string
+        noteCount:
+          type: integer
+        sortOrder:
+          type: integer
+
+    # 文件相关
+    FileListRequestDTO:
+      type: object
+      properties:
+        page:
+          type: integer
+          default: 1
+        size:
+          type: integer
+          default: 10
+        keyword:
+          type: string
+        fileType:
+          type: string
+        sortBy:
+          type: string
+          default: create_time
+        sortOrder:
+          type: string
+          default: desc
+          enum: [asc, desc]
+
+    FileUpInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        originalFilename:
+          type: string
+        fileName:
+          type: string
+        fileExtension:
+          type: string
+        fileSize:
+          type: integer
+        filePath:
+          type: string
+        fileUrl:
+          type: string
+        userId:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+
+    FileUploadVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        originalFilename:
+          type: string
+        fileUrl:
+          type: string
+        documentCount:
+          type: integer
+        processingStatus:
+          type: string
+          enum: [SUCCESS, FAILED]
+        processingMessage:
+          type: string
+
+    FileRenameDTO:
+      type: object
+      required: [newName]
+      properties:
+        newName:
+          type: string
+
+    BatchFileOperationDTO:
+      type: object
+      required: [fileIds]
+      properties:
+        fileIds:
+          type: array
+          items:
+            type: integer
+
+    # 知识库相关
+    SharedKnowledgeBaseCreateDTO:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 2000
+        coverUrl:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          maxLength: 20
+        isPublic:
+          type: boolean
+          default: true
+        initialFileIds:
+          type: array
+          items:
+            type: integer
+
+    SharedKnowledgeBaseUpdateDTO:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 128
+        description:
+          type: string
+          maxLength: 2000
+        coverUrl:
+          type: string
+          maxLength: 255
+        password:
+          type: string
+          maxLength: 20
+        isPublic:
+          type: boolean
+
+    SharedKnowledgeBaseVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        coverUrl:
+          type: string
+        isPublic:
+          type: boolean
+        memberCount:
+          type: integer
+        fileCount:
+          type: integer
+        creatorId:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+
+    KnowledgeBaseSquareVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        coverUrl:
+          type: string
+        memberCount:
+          type: integer
+        fileCount:
+          type: integer
+        creatorName:
+          type: string
+
+    KnowledgeBaseJoinDTO:
+      type: object
+      required: [knowledgeBaseId]
+      properties:
+        knowledgeBaseId:
+          type: integer
+        password:
+          type: string
+
+    KnowledgeBaseFileUploadDTO:
+      type: object
+      required: [knowledgeBaseId]
+      properties:
+        knowledgeBaseId:
+          type: integer
+        fileIds:
+          type: array
+          items:
+            type: integer
+        sourceType:
+          type: integer
+          enum: [1, 2]
+          default: 1
+
+    KnowledgeBaseFileVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        fileName:
+          type: string
+        fileSize:
+          type: integer
+        fileUrl:
+          type: string
+        uploaderId:
+          type: integer
+        uploaderName:
+          type: string
+        createTime:
+          type: string
+          format: date-time
+
+    KnowledgeBaseMemberVO:
+      type: object
+      properties:
+        userId:
+          type: integer
+        username:
+          type: string
+        avatarUrl:
+          type: string
+        role:
+          type: string
+        joinTime:
+          type: string
+          format: date-time
+
+    SharedKnowledgeBaseChatDTO:
+      type: object
+      required: [knowledgeBaseId, message]
+      properties:
+        knowledgeBaseId:
+          type: integer
+        message:
+          type: string
+        memoryId:
+          type: string
+
+    # 聊天相关
+    ChatRequestDTO:
+      type: object
+      required: [memoryId, message]
+      properties:
+        memoryId:
+          type: string
+        message:
+          type: string
+
+    # AI设置相关
+    AISettingsDTO:
+      type: object
+      properties:
+        enablePersonalKb:
+          type: boolean
+        personalKbMaxDocs:
+          type: integer
+          minimum: 1
+          maximum: 50
+        chatStyle:
+          type: integer
+          enum: [1, 2, 3]
+        replyLanguage:
+          type: integer
+          enum: [1, 2, 3]
+        assistantName:
+          type: string
+        chatApiKey:
+          type: string
+        chatApiEndpoint:
+          type: string
+          maxLength: 255
+        enableSharedKb:
+          type: boolean
+        sharedKbMaxDocs:
+          type: integer
+          minimum: 1
+          maximum: 50
+        customSystemPrompt:
+          type: string
+        kbApiKey:
+          type: string
+        kbApiEndpoint:
+          type: string
+
+    UserAISettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        enablePersonalKb:
+          type: boolean
+        personalKbMaxDocs:
+          type: integer
+        chatStyle:
+          type: integer
+        replyLanguage:
+          type: integer
+        assistantName:
+          type: string
+
+    # 模板相关
+    TemplateVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        content:
+          type: string
+        downloadCount:
+          type: integer
+        rating:
+          type: number
+
+    TemplateCommentVO:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        username:
+          type: string
+        content:
+          type: string
+        likeCount:
+          type: integer
+        createTime:
+          type: string
+          format: date-time
+
+paths:
+  # ==================== 通用模块 ====================
+  /api/common/register:
+    post:
+      tags: [通用模块]
+      summary: 用户注册
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDTO'
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/captcha:
+    get:
+      tags: [通用模块]
+      summary: 获取图形验证码
+      operationId: getCaptcha
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/CaptchaVO'
+
+  /api/common/login:
+    post:
+      tags: [通用模块]
+      summary: 用户登录
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDTO'
+      responses:
+        '200':
+          description: 登录成功，返回Token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: string
+                        description: 登录令牌
+
+  /api/common/logout:
+    post:
+      tags: [通用模块]
+      summary: 退出登录
+      operationId: logout
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/user/info:
+    get:
+      tags: [通用模块]
+      summary: 获取当前用户信息
+      operationId: getUserInfo
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/User'
+
+  /api/common/user/info/{userId}:
+    get:
+      tags: [通用模块]
+      summary: 根据用户ID获取信息
+      operationId: getUserInfoById
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/user/update:
+    put:
+      tags: [通用模块]
+      summary: 更新用户信息
+      operationId: updateUser
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/file/upload:
+    post:
+      tags: [通用模块]
+      summary: 通用文件上传
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FileUpInfo'
+
+  /api/common/users:
+    get:
+      tags: [通用模块]
+      summary: 分页查询用户列表（管理员）
+      operationId: listUsers
+      security:
+        - satoken: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: roleType
+          in: query
+          schema:
+            type: integer
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/test/connection-pool:
+    get:
+      tags: [通用模块]
+      summary: PgVector连接池状态检查（管理员）
+      operationId: testConnectionPool
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/common/diagnose/vector-db:
+    get:
+      tags: [通用模块]
+      summary: 诊断向量数据库
+      operationId: diagnoseVectorDb
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ==================== 笔记模块 ====================
+  /api/notes:
+    get:
+      tags: [笔记模块]
+      summary: 分页查询笔记列表
+      operationId: getNotes
+      security:
+        - satoken: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: notebookId
+          in: query
+          schema:
+            type: integer
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+    post:
+      tags: [笔记模块]
+      summary: 创建笔记
+      operationId: createNote
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteCreateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NoteDetailVO'
+
+  /api/notes/{noteId}:
+    get:
+      tags: [笔记模块]
+      summary: 获取笔记详情
+      operationId: getNoteDetail
+      security:
+        - satoken: []
+      parameters:
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NoteDetailVO'
+
+    delete:
+      tags: [笔记模块]
+      summary: 删除笔记
+      operationId: deleteNote
+      security:
+        - satoken: []
+      parameters:
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/notes/update:
+    post:
+      tags: [笔记模块]
+      summary: 更新笔记
+      operationId: updateNote
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteUpdateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NoteDetailVO'
+
+  /api/notes/{noteId}/pin:
+    post:
+      tags: [笔记模块]
+      summary: 切换笔记置顶状态
+      operationId: togglePinNote
+      security:
+        - satoken: []
+      parameters:
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/notes/tags:
+    get:
+      tags: [笔记模块]
+      summary: 获取用户所有标签
+      operationId: getUserTags
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: string
+
+  /api/notes/autosave:
+    post:
+      tags: [笔记模块]
+      summary: 自动保存笔记内容
+      operationId: autoSaveNote
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteAutoSaveDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/notes/{noteId}/add-to-knowledge-base:
+    post:
+      tags: [笔记模块]
+      summary: 将笔记加入个人知识库
+      operationId: addNoteToKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: noteId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ==================== 笔记本模块 ====================
+  /api/notebooks:
+    get:
+      tags: [笔记本模块]
+      summary: 获取用户笔记本列表
+      operationId: getUserNotebooks
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/NotebookVO'
+
+    post:
+      tags: [笔记本模块]
+      summary: 创建笔记本
+      operationId: createNotebook
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotebookCreateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NotebookVO'
+
+  /api/notebooks/{notebookId}:
+    get:
+      tags: [笔记本模块]
+      summary: 获取笔记本详情
+      operationId: getNotebook
+      security:
+        - satoken: []
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NotebookVO'
+
+    put:
+      tags: [笔记本模块]
+      summary: 更新笔记本
+      operationId: updateNotebook
+      security:
+        - satoken: []
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotebookCreateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/NotebookVO'
+
+    delete:
+      tags: [笔记本模块]
+      summary: 删除笔记本
+      operationId: deleteNotebook
+      security:
+        - satoken: []
+      parameters:
+        - name: notebookId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ==================== 文档模块 ====================
+  /api/documents/upload:
+    post:
+      tags: [文档模块]
+      summary: 上传文档（自动转PDF并向量化）
+      description: 支持.md/.txt/.doc/.pdf格式，非PDF自动转换
+      operationId: uploadDocument
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FileUploadVO'
+
+  /api/documents/files/list:
+    post:
+      tags: [文档模块]
+      summary: 获取用户文件列表
+      operationId: getUserFiles
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileListRequestDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/documents/files/{fileId}:
+    delete:
+      tags: [文档模块]
+      summary: 删除用户文件
+      operationId: deleteUserFile
+      security:
+        - satoken: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/documents/files/{fileId}/download:
+    get:
+      tags: [文档模块]
+      summary: 下载文件
+      operationId: downloadFile
+      security:
+        - satoken: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 文件流
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /api/documents/files/{fileId}/rename:
+    put:
+      tags: [文档模块]
+      summary: 重命名文件
+      operationId: renameFile
+      security:
+        - satoken: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FileRenameDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FileUpInfo'
+
+  /api/documents/files/batch-delete:
+    delete:
+      tags: [文档模块]
+      summary: 批量删除文件
+      operationId: batchDeleteFiles
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFileOperationDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/documents/rebuild-index:
+    post:
+      tags: [文档模块]
+      summary: 重建文档索引
+      operationId: rebuildIndex
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchFileOperationDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/documents/test-vector:
+    get:
+      tags: [文档模块]
+      summary: 向量化诊断接口
+      operationId: testVector
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/documents/test-parse:
+    post:
+      tags: [文档模块]
+      summary: 测试文档解析
+      operationId: testParse
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  # ==================== 共享知识库模块 ====================
+  /api/shared-kb:
+    get:
+      tags: [共享知识库]
+      summary: 获取我的知识库列表
+      operationId: getMyKnowledgeBases
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SharedKnowledgeBaseVO'
+
+    post:
+      tags: [共享知识库]
+      summary: 创建共享知识库
+      operationId: createKnowledgeBase
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SharedKnowledgeBaseCreateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SharedKnowledgeBaseVO'
+
+  /api/shared-kb/{kbId}:
+    get:
+      tags: [共享知识库]
+      summary: 获取知识库详情
+      operationId: getKnowledgeBaseDetail
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SharedKnowledgeBaseVO'
+
+    put:
+      tags: [共享知识库]
+      summary: 更新知识库
+      operationId: updateKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SharedKnowledgeBaseUpdateDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SharedKnowledgeBaseVO'
+
+    delete:
+      tags: [共享知识库]
+      summary: 删除知识库
+      operationId: deleteKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/square:
+    get:
+      tags: [共享知识库]
+      summary: 知识库广场列表
+      operationId: getKnowledgeBaseSquare
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: keyword
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/shared-kb/join:
+    post:
+      tags: [共享知识库]
+      summary: 加入知识库
+      operationId: joinKnowledgeBase
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeBaseJoinDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/{kbId}/leave:
+    post:
+      tags: [共享知识库]
+      summary: 退出知识库
+      operationId: leaveKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/{kbId}/members:
+    get:
+      tags: [共享知识库]
+      summary: 获取成员列表
+      operationId: getKnowledgeBaseMembers
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KnowledgeBaseMemberVO'
+
+  /api/shared-kb/{kbId}/members/{userId}:
+    delete:
+      tags: [共享知识库]
+      summary: 移除成员
+      operationId: removeMember
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/{kbId}/files:
+    get:
+      tags: [共享知识库]
+      summary: 获取知识库文件列表
+      operationId: getKnowledgeBaseFiles
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/shared-kb/{kbId}/files/upload:
+    post:
+      tags: [共享知识库]
+      summary: 上传文件到知识库
+      operationId: uploadFileToKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeBaseFileVO'
+
+  /api/shared-kb/{kbId}/files/copy:
+    post:
+      tags: [共享知识库]
+      summary: 从个人文件库复制文件到知识库
+      operationId: copyFilesToKnowledgeBase
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KnowledgeBaseFileUploadDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/{kbId}/files/{fileId}:
+    delete:
+      tags: [共享知识库]
+      summary: 删除知识库文件
+      operationId: deleteKnowledgeBaseFile
+      security:
+        - satoken: []
+      parameters:
+        - name: kbId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/shared-kb/chat:
+    post:
+      tags: [共享知识库]
+      summary: 共享知识库AI聊天（流式）
+      operationId: sharedKnowledgeBaseChat
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SharedKnowledgeBaseChatDTO'
+      responses:
+        '200':
+          description: SSE流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ==================== 聊天模块 ====================
+  /api/chat/stream:
+    post:
+      tags: [聊天模块]
+      summary: AI流式聊天（有限流控制）
+      description: 基于个人知识库的AI聊天，支持SSE流式输出
+      operationId: chatStream
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequestDTO'
+      responses:
+        '200':
+          description: SSE流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: 流式返回AI回复内容
+
+  /api/chat/stream/local:
+    post:
+      tags: [聊天模块]
+      summary: AI流式聊天（无限流控制）
+      description: 快速响应版本，无频率限制
+      operationId: chatStreamLocal
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequestDTO'
+      responses:
+        '200':
+          description: SSE流式响应
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  # ==================== 设置模块 ====================
+  /api/settings/ai:
+    get:
+      tags: [设置模块]
+      summary: 获取用户AI设置
+      operationId: getAISettings
+      security:
+        - satoken: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserAISettings'
+
+    put:
+      tags: [设置模块]
+      summary: 更新用户AI设置
+      operationId: updateAISettings
+      security:
+        - satoken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AISettingsDTO'
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserAISettings'
+
+  # ==================== 模板模块 ====================
+  /api/templates:
+    get:
+      tags: [模板模块]
+      summary: 搜索模板
+      operationId: searchTemplates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: 模板分类
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 搜索关键词
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/templates/{templateId}:
+    get:
+      tags: [模板模块]
+      summary: 获取模板详情
+      operationId: getTemplateDetail
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TemplateVO'
+
+  /api/templates/{templateId}/related:
+    get:
+      tags: [模板模块]
+      summary: 获取相关模板
+      operationId: getRelatedTemplates
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TemplateVO'
+
+  /api/templates/{templateId}/comments:
+    get:
+      tags: [模板模块]
+      summary: 获取模板评论
+      operationId: getTemplateComments
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Result'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PageResult'
+
+  /api/templates/{templateId}/use:
+    post:
+      tags: [模板模块]
+      summary: 使用模板（记录使用次数）
+      operationId: useTemplate
+      security:
+        - satoken: []
+      parameters:
+        - name: templateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'
+
+  /api/templates/comments/{commentId}/like:
+    post:
+      tags: [模板模块]
+      summary: 点赞评论
+      operationId: likeComment
+      security:
+        - satoken: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Result'

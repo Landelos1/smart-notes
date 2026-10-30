@@ -1,0 +1,213 @@
+@import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==================== Light Mode Variables ==================== */
+/* 暖调奶油主题：中性色偏暖（米 → 褐），主色陶土橘，辅色橄榄绿 / 姜黄 / 砖红 */
+:root {
+  /* Base Colors */
+  --art-color: #fbf8f2;
+  --theme-color: var(--main-color);
+
+  /* Theme Colors - Warm Cream */
+  --art-primary: #b25f22;
+  --art-secondary: #996883;
+  --art-error: #c0564a;
+  --art-info: #8b745c;
+  --art-success: #5c6e3b;
+  --art-warning: #c98a2e;
+  --art-danger: #a34238;
+
+  /* Gray Scale - Light Mode */
+  --art-gray-100: #fbf8f2;
+  --art-gray-200: #f6f0e5;
+  --art-gray-300: #ede4d4;
+  --art-gray-400: #dfd2bd;
+  --art-gray-500: #8b745c;
+  --art-gray-600: #6d5742;
+  --art-gray-700: #513f30;
+  --art-gray-800: #362a20;
+  --art-gray-900: #241b14;
+
+  /* Border Colors */
+  --art-card-border: rgba(120, 90, 50, 0.12);
+
+  --default-border: #e7dcc9;
+  --default-border-dashed: #dfd2bd;
+
+  /* Background Colors */
+  /* 原来是 #fbf8f2，与卡片色 #fffdf9 几乎同色，整页糊成一片白、卡片没有边界。
+     压深一档到 gray-200，白色卡片才浮得起来；侧栏去掉后也需要靠底色划分层次。 */
+  --default-bg-color: #f6f0e5;
+  --default-box-color: #fffdf9;
+
+  /* Hover Color */
+  --art-hover-color: #f1e8d8;
+
+  /* Active Color */
+  --art-active-color: #ede4d4;
+
+  /* Element Component Active Color */
+  --art-el-active-color: #f1e8d8;
+}
+
+/* ==================== Dark Mode Variables ==================== */
+/* 暗色不做纯黑，改成深咖底，避免与暖色主色冲突 */
+.dark {
+  /* Base Colors */
+  --art-color: #14100c;
+
+  /* Gray Scale - Dark Mode */
+  --art-gray-100: #17110c;
+  --art-gray-200: #1f1813;
+  --art-gray-300: #2e251d;
+  --art-gray-400: #43372b;
+  --art-gray-500: #7a6653;
+  --art-gray-600: #9c8873;
+  --art-gray-700: #bca992;
+  --art-gray-800: #d6c7b2;
+  --art-gray-900: #efe6d8;
+
+  /* Border Colors */
+  --art-card-border: rgba(255, 240, 220, 0.1);
+
+  --default-border: rgba(255, 235, 210, 0.11);
+  --default-border-dashed: #3a2f25;
+
+  /* Background Colors */
+  /* 暗色同样压深一档，与亮色保持同一套层次逻辑（底深 -> 卡片浅） */
+  --default-bg-color: #100c09;
+  --default-box-color: #1d1712;
+
+  /* Hover Color */
+  --art-hover-color: #2a221a;
+
+  /* Active Color */
+  --art-active-color: #33291f;
+
+  /* Element Component Active Color */
+  --art-el-active-color: #2a221a;
+}
+
+/* ==================== Tailwind Theme Configuration ==================== */
+@theme {
+  /* Box Color (Light: white / Dark: black) */
+  --color-box: var(--default-box-color);
+
+  /* System Theme Color */
+  --color-theme: var(--theme-color);
+
+  /* Hover Color */
+  --color-hover-color: var(--art-hover-color);
+
+  /* Active Color */
+  --color-active-color: var(--art-active-color);
+
+  /* Active Color */
+  --color-el-active-color: var(--art-active-color);
+
+  /* ElementPlus Theme Colors */
+  --color-primary: var(--art-primary);
+  --color-secondary: var(--art-secondary);
+  --color-error: var(--art-error);
+  --color-info: var(--art-info);
+  --color-success: var(--art-success);
+  --color-warning: var(--art-warning);
+  --color-danger: var(--art-danger);
+
+  /* Gray Scale Colors (Auto-adapts to dark mode) */
+  --color-g-100: var(--art-gray-100);
+  --color-g-200: var(--art-gray-200);
+  --color-g-300: var(--art-gray-300);
+  --color-g-400: var(--art-gray-400);
+  --color-g-500: var(--art-gray-500);
+  --color-g-600: var(--art-gray-600);
+  --color-g-700: var(--art-gray-700);
+  --color-g-800: var(--art-gray-800);
+  --color-g-900: var(--art-gray-900);
+}
+
+/* ==================== Custom Border Radius Utilities ==================== */
+@utility rounded-custom-xs {
+  border-radius: calc(var(--custom-radius) / 2);
+}
+
+@utility rounded-custom-sm {
+  border-radius: calc(var(--custom-radius) / 2 + 2px);
+}
+
+/* ==================== Custom Utility Classes ==================== */
+@layer utilities {
+  /* Flexbox Layout Utilities */
+  .flex-c {
+    @apply flex items-center;
+  }
+
+  .flex-b {
+    @apply flex justify-between;
+  }
+
+  .flex-cc {
+    @apply flex items-center justify-center;
+  }
+
+  .flex-cb {
+    @apply flex items-center justify-between;
+  }
+
+  /* Transition Utilities */
+  .tad-200 {
+    @apply transition-all duration-200;
+  }
+
+  .tad-300 {
+    @apply transition-all duration-300;
+  }
+
+  /* Border Utilities */
+  .border-full-d {
+    @apply border border-[var(--default-border)];
+  }
+
+  .border-b-d {
+    @apply border-b border-[var(--default-border)];
+  }
+
+  .border-t-d {
+    @apply border-t border-[var(--default-border)];
+  }
+
+  .border-l-d {
+    @apply border-l border-[var(--default-border)];
+  }
+
+  .border-r-d {
+    @apply border-r border-[var(--default-border)];
+  }
+
+  /* Cursor Utilities */
+  .c-p {
+    @apply cursor-pointer;
+  }
+}
+
+/* ==================== Custom Component Classes ==================== */
+@layer components {
+  /* Art Card Header Component */
+  .art-card-header {
+    @apply flex justify-between pr-6 pb-1;
+
+    .title {
+      h4 {
+        @apply text-lg font-medium text-g-900;
+      }
+
+      p {
+        @apply mt-1 text-sm text-g-600;
+
+        span {
+          @apply ml-2 font-medium;
+        }
+      }
+    }
+  }
+}

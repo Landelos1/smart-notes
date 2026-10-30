@@ -81,8 +81,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         // throw new BizException("管理员权限不允许注册");
         // }
 
-        // 检查手机号是否重复
-        if (count(new QueryWrapper<User>().eq("phone", phone).eq("role_type", roleType)) > 0) {
+        // 检查手机号是否重复：手机号必须全局唯一，不能按角色分组
+        // （曾经按 phone + role_type 判重，导致同一手机号可再注册另一角色，登录时按手机号
+        //   查询会命中 2 条，MyBatis selectOne 直接抛 TooManyResultsException）
+        if (count(new QueryWrapper<User>().eq("phone", phone)) > 0) {
             log.warn("[用户注册] 手机号已被注册: {}", phone);
             throw new BizException("手机号已被注册");
         }
@@ -123,11 +125,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BizException("验证码错误或已过期");
         }
 
-        // 查询用户
-        User user = getOne(new QueryWrapper<User>().eq("phone", phone));
-        if (user == null) {
+        // 查询用户：用 list 而不是 getOne。
+        // 手机上若存在历史重复数据，getOne 会抛 TooManyResultsException（接口直接 500），
+        // 这里按请求角色精确挑出目标账号，既兼容脏数据又能给出准确的错误提示。
+        List<User> candidates = list(new QueryWrapper<User>().eq("phone", phone));
+        if (candidates.isEmpty()) {
             log.warn("[用户登录] 用户不存在, 手机号: {}", phone);
             throw new BizException("手机号或密码错误");
+        }
+        User user = null;
+        if (candidates.size() > 1) {
+            log.warn("[用户登录] 手机号命中 {} 条记录，按角色 roleType={} 精确匹配: {}", candidates.size(), roleType, phone);
+        }
+        for (User candidate : candidates) {
+            if (Objects.equals(candidate.getRoleType(), roleType)) {
+                user = candidate;
+                break;
+            }
+        }
+        if (user == null) {
+            log.warn("[用户登录] 角色不匹配, 手机号: {}, 请求角色: {}", phone, roleType);
+            throw new BizException("账号权限不足");
         }
 
         // 校验密码（使用相同的 SHA256 加密方式）

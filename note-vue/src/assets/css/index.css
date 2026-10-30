@@ -1,0 +1,1211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d9cab1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c6b49c;
+}
+
+/* Markdown 预览样式 */
+.markdown-preview {
+  line-height: 1.6;
+}
+
+.markdown-preview h1 {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 0.67em 0;
+  border-bottom: 1px solid var(--wc-line, #e7dcc9);
+  padding-bottom: 0.3em;
+}
+
+.markdown-preview h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0.83em 0;
+  border-bottom: 1px solid var(--wc-line, #e7dcc9);
+  padding-bottom: 0.3em;
+}
+
+.markdown-preview h3 {
+  font-size: 1.17em;
+  font-weight: bold;
+  margin: 1em 0;
+}
+
+.markdown-preview p {
+  margin: 1em 0;
+}
+
+.markdown-preview ul, .markdown-preview ol {
+  padding-left: 2em;
+  margin: 1em 0;
+}
+
+.markdown-preview li {
+  margin: 0.5em 0;
+}
+
+.markdown-preview code {
+  background-color: var(--wc-surface-2, #f6f0e5);
+  color: var(--wc-ink, #241b14);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.markdown-preview pre {
+  background-color: #2a2018;
+  color: #f2e9dc;
+  padding: 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-preview pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.markdown-preview a {
+  color: var(--wc-accent, #b25f22);
+  text-decoration: none;
+}
+
+.markdown-preview a:hover {
+  text-decoration: underline;
+}
+
+.markdown-preview blockquote {
+  border-left: 4px solid var(--wc-line-strong, #d9cab1);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--wc-ink-3, #8b745c);
+}
+
+.markdown-preview hr {
+  border: 0;
+  border-top: 1px solid var(--wc-line, #e7dcc9);
+  margin: 1.5em 0;
+}
+
+.note-reader {
+  background-color: var(--wc-bg, #fbf8f2);
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(178, 95, 34, 0.07), transparent 45%),
+    radial-gradient(circle at 85% 5%, rgba(92, 110, 59, 0.05), transparent 40%),
+    linear-gradient(180deg, rgba(255, 253, 249, 0.92), rgba(246, 240, 229, 0.92));
+  color: var(--wc-ink, #241b14);
+}
+
+.note-reader > * {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.markdown-preview img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0.75em auto;
+  border-radius: 6px;
+}
+
+.markdown-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  border: 1px solid var(--wc-line, #e7dcc9);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+
+.markdown-preview th {
+  background-color: var(--wc-surface-2, #f6f0e5);
+  font-weight: 600;
+}
+
+.markdown-preview strong {
+  font-weight: bold;
+}
+
+.markdown-preview em {
+  font-style: italic;
+}
+
+/* 行数截断 */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 动画 */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-25%);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 0.6s ease-in-out infinite;
+}
+
+/* 平滑滚动 */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 197, 253, 0.5) transparent;
+}
+
+.smooth-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.smooth-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.smooth-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(147, 197, 253, 0.5);
+  border-radius: 3px;
+}
+
+.smooth-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(178, 95, 34, 0.55);
+}
+
+/* ============================================================
+   暖调奶油主题基底（Warm Cream Theme）
+   与 tailwind.config.js 的色板配套。这里只做「全局层」：
+   页面级样式仍然由 Tailwind 工具类表达，不在此处堆砌选择器。
+   ============================================================ */
+
+:root {
+  /* 背景 */
+  --wc-bg: #fbf8f2;
+  --wc-bg-warm: #f6efe2;
+  --wc-surface: #fffdf9;
+  --wc-surface-2: #f6f0e5;
+  /* 描边 */
+  --wc-line: #e7dcc9;
+  --wc-line-strong: #d9cab1;
+  /* 文字 */
+  --wc-ink: #241b14;
+  --wc-ink-2: #6d5742;
+  --wc-ink-3: #8b745c;
+  /* 强调 */
+  --wc-accent: #b25f22;
+  --wc-accent-hover: #8e4a1b;
+  --wc-accent-soft: #fae7d3;
+  /* 形状 */
+  --wc-radius: 16px;
+  --wc-shadow: 0 4px 14px -2px rgba(88, 64, 40, 0.08);
+}
+
+body {
+  background-color: var(--wc-bg);
+  background-image:
+    radial-gradient(circle at 12% 0%, rgba(210, 116, 46, 0.07), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(116, 135, 77, 0.05), transparent 38%);
+  background-attachment: fixed;
+  color: var(--wc-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--wc-accent-soft);
+  color: var(--wc-accent-hover);
+}
+
+/* 滚动条：暖灰 */
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d9cab1;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c6b49c;
+}
+
+/* 焦点环统一成陶土橘，避免浏览器默认蓝 */
+:focus-visible {
+  outline-color: rgba(178, 95, 34, 0.5);
+}
+
+/* ---------- Element Plus 主题对齐 ---------- */
+:root {
+  --el-color-primary: #b25f22;
+  --el-color-primary-light-3: #c9803f;
+  --el-color-primary-light-5: #dca270;
+  --el-color-primary-light-7: #edc49f;
+  --el-color-primary-light-8: #f4d5bc;
+  --el-color-primary-light-9: #fbf0e5;
+  --el-color-primary-dark-2: #8e4a1b;
+
+  --el-color-success: #5c6e3b;
+  --el-color-warning: #c98a2e;
+  --el-color-danger: #a34238;
+  --el-color-error: #a34238;
+  --el-color-info: #8b745c;
+
+  --el-bg-color: #fffdf9;
+  --el-bg-color-page: #fbf8f2;
+  --el-bg-color-overlay: #fffdf9;
+
+  --el-text-color-primary: #241b14;
+  --el-text-color-regular: #513f30;
+  --el-text-color-secondary: #6d5742;
+  --el-text-color-placeholder: #a9957f;
+  --el-text-color-disabled: #c6b49c;
+
+  --el-border-color: #e7dcc9;
+  --el-border-color-light: #ede4d4;
+  --el-border-color-lighter: #f2ebde;
+  --el-border-color-extra-light: #f6f0e5;
+
+  --el-fill-color: #f6f0e5;
+  --el-fill-color-light: #faf6ee;
+  --el-fill-color-lighter: #fdfaf4;
+  --el-fill-color-blank: #fffdf9;
+
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+
+  --el-mask-color: rgba(36, 27, 20, 0.45);
+  --el-box-shadow-light: 0 4px 14px -2px rgba(88, 64, 40, 0.08);
+}
+
+/* ---------- 阅读态背景改暖 ---------- */
+.note-reader {
+  background-color: #fbf8f2;
+  background-image:
+    radial-gradient(circle at 15% 8%, rgba(210, 116, 46, 0.08), transparent 46%),
+    radial-gradient(circle at 85% 4%, rgba(153, 104, 131, 0.05), transparent 40%),
+    linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(246, 240, 229, 0.92));
+  color: var(--wc-ink);
+}
+
+/* ---------- Markdown 预览改暖 ---------- */
+.markdown-preview h1,
+.markdown-preview h2 {
+  border-bottom-color: var(--wc-line);
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  color: var(--wc-ink);
+  letter-spacing: -0.01em;
+}
+
+.markdown-preview code {
+  background-color: #f6f0e5;
+  color: #8e4a1b;
+}
+
+.markdown-preview pre {
+  background-color: #2e2721;
+  color: #f2e9dc;
+  border: 1px solid #3d342c;
+}
+
+.markdown-preview a {
+  color: var(--wc-accent);
+}
+
+.markdown-preview blockquote {
+  border-left-color: var(--wc-line-strong);
+  color: var(--wc-ink-2);
+  background-color: rgba(246, 240, 229, 0.6);
+  border-radius: 0 10px 10px 0;
+  padding: 0.6em 1em;
+}
+
+.markdown-preview th,
+.markdown-preview td {
+  border-color: var(--wc-line);
+}
+
+.markdown-preview th {
+  background-color: #f6f0e5;
+  color: var(--wc-ink);
+}
+
+.markdown-preview img {
+  border-radius: 12px;
+  box-shadow: var(--wc-shadow);
+}
+
+/* ---------- 语义化工具类（供新组件复用） ---------- */
+.wc-card {
+  background-color: var(--wc-surface);
+  border: 1px solid var(--wc-line);
+  border-radius: var(--wc-radius);
+  box-shadow: var(--wc-shadow);
+}
+
+.wc-hairline {
+  height: 1px;
+  background-color: var(--wc-line);
+}
+
+.wc-title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--wc-ink);
+}
+
+/* ------------------------------------------------------------
+   把纯白替换成「奶油纸白」。
+   全站有 300+ 处 bg-white，逐个改类名不现实；
+   这里利用「同等特异性、后出现者生效」覆盖 Tailwind 的 .bg-white。
+   带透明度的写法（bg-white/70）会生成独立类名，不受影响。
+   ------------------------------------------------------------ */
+.bg-white {
+  background-color: var(--wc-surface);
+}
+
+/* ============================================================
+   页面骨架（Page Shell）
+   ------------------------------------------------------------
+   改动缘由：原来每个页面各自拼「bg-gray-50 铺底 + bg-white 页头 +
+   bg-white 内容卡」，主区域被切成三条白/灰横带，眼睛分不清哪层是
+   容器、哪层是内容；空状态又用固定高度，内容少时文字飘在大片空白中央。
+
+   现在统一成一套骨架：
+     · 主区域回到「米色纸面」（与侧栏同色系，不另铺一层灰）
+     · 页头不再单独占一条白底，靠留白与字号分出层级
+     · 内容一律浮起为白色面板，1px 暖描边 + 极淡投影
+   ============================================================ */
+
+/* 页面根：只做背景与溢出，不碰布局（布局仍由 flex 工具类负责） */
+.wc-page {
+  background-color: transparent;
+}
+
+/* 页头：与内容同底，用留白分隔 */
+.wc-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px 32px 18px;
+}
+
+.wc-page-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 22px;
+  line-height: 1.32;
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  color: var(--wc-ink);
+}
+
+.wc-page-title svg {
+  width: 22px;
+  height: 22px;
+  color: var(--wc-ink-3);
+  flex: none;
+}
+
+.wc-page-sub {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--wc-ink-3);
+}
+
+/* 内容区：统一内边距，纵向可滚动 */
+.wc-page-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 32px 32px;
+}
+
+/* 白色面板 */
+.wc-panel {
+  background-color: var(--wc-surface);
+  border: 1px solid var(--wc-line);
+  border-radius: var(--wc-radius);
+  box-shadow:
+    0 1px 2px rgba(88, 64, 40, 0.04),
+    0 8px 24px -18px rgba(88, 64, 40, 0.2);
+}
+
+.wc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--wc-line);
+}
+
+.wc-panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--wc-ink);
+}
+
+.wc-panel-sub {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--wc-ink-3);
+}
+
+/* 表格：表头与正文用不同底，行分隔线更淡 */
+.wc-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  /* 固定布局：列宽由 th 上的 w-* 决定，剩余宽度给未指定列。
+     只有固定布局下 td 里的 truncate 才能真正生效（auto 布局会被
+     min-content 撑开，长标题会把整列顶宽）。 */
+  table-layout: fixed;
+}
+
+.wc-table thead th {
+  background-color: var(--wc-surface-2);
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--wc-ink-2);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--wc-line);
+}
+
+.wc-table thead th:first-child { border-top-left-radius: 8px; }
+.wc-table thead th:last-child { border-top-right-radius: 8px; }
+
+.wc-table tbody td {
+  padding: 13px 16px;
+  font-size: 13.5px;
+  color: var(--wc-ink-2);
+  border-bottom: 1px solid rgba(231, 220, 201, 0.62);
+}
+
+.wc-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.wc-table tbody tr {
+  transition: background-color 0.16s ease;
+}
+
+.wc-table tbody tr:hover {
+  background-color: rgba(246, 240, 229, 0.55);
+}
+
+/* 空状态：软底圆形图标 + 主副文案 + 可选行动 */
+.wc-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 52px 24px;
+}
+
+.wc-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--wc-surface-2);
+  color: var(--wc-ink-3);
+  margin-bottom: 14px;
+}
+
+.wc-empty-icon svg {
+  width: 26px;
+  height: 26px;
+  opacity: 0.66;
+}
+
+.wc-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wc-ink-2);
+}
+
+.wc-empty-desc {
+  margin-top: 6px;
+  max-width: 36em;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--wc-ink-3);
+}
+
+.wc-empty-action {
+  margin-top: 18px;
+}
+
+/* 左栏（二级导航）：与纸面同色，仅右边一条细线 */
+.wc-side {
+  background-color: transparent;
+  border-right: 1px solid var(--wc-line);
+}
+
+.wc-side-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--wc-ink-3);
+  text-transform: uppercase;
+}
+
+/* 左栏选中项 */
+.wc-side-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: var(--wc-ink-2);
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.wc-side-item:hover {
+  background-color: rgba(246, 240, 229, 0.9);
+}
+
+.wc-side-item.is-active {
+  background-color: var(--wc-accent-soft);
+  color: var(--wc-accent-hover);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Markdown 编辑器（md-editor-v3）暖色主题
+   ------------------------------------------------------------
+   库本身用一整套 --md-* CSS 变量控制配色，默认是冷白 + 冷灰工具栏
+   （纯白 / 冷灰工具栏 / 冷灰字 / 蓝色选区 / 青色引用块），是站内最后
+   一块大面积冷色。这里只覆盖变量，不改库的 DOM。
+   注意：库把变量声明在 .md-editor 元素自身，**预览区 .md-editor-preview
+   还会再声明一整遍**（含 code-block 深蓝底 282c34、蓝色行内代码底
+   rgba(59,170,250,.1)），所以选择器必须写到 3 个类才能压住，
+   两层级选择器会被预览区那份覆盖。
+   ============================================================ */
+.wc-md .md-editor.md-editor,
+.wc-md .md-editor .md-editor-preview,
+body .md-editor-modal-container {
+  /* 纸面 */
+  --md-bk-color: #fffdf9;
+  --md-bk-color-outstand: #f7f1e6;
+  --md-bk-hover-color: #f1e7d7;
+  --md-color: #4a3b2c;
+  --md-hover-color: #8e4a1b;
+
+  /* 描边 */
+  --md-border-color: #e7dcc9;
+  --md-border-hover-color: #d9cab1;
+  --md-border-active-color: #b25f22;
+
+  /* 主题色：陶土橘 */
+  --md-theme-color: #b25f22;
+  --md-theme-color-hover: #8e4a1b;
+  --md-theme-color-reverse: #fffdf9;
+  --md-theme-bg-color: #fffdf9;
+  --md-theme-bg-color-inset: #f7f1e6;
+  --md-theme-border-color: #e7dcc9;
+  --md-theme-border-color-inset: #efe5d4;
+  --md-theme-heading-color: #2f2418;
+  --md-theme-heading-border: #e7dcc9;
+  --md-theme-link-color: #a2591f;
+  --md-theme-link-hover-color: #8e4a1b;
+
+  /* 选区：原来是很蓝的 rgba(175,207,247,.25) */
+  --md-theme-slct-bg-color: rgba(178, 95, 34, 0.15);
+
+  /* 行内代码 / 代码块：原来 #eff1f2 / #f6f8fa 冷灰 */
+  --md-theme-code-bg-color: #f4ecdd;
+  --md-theme-code-inline-bg-color: #f4ecdd;
+  --md-theme-code-inline-color: #8e4a1b;
+  --md-theme-code-color: #4a3b2c;
+  --md-theme-code-block-bg-color: #2a2018;
+  --md-theme-code-block-color: #f2e9dc;
+  --md-theme-code-active-color: #b25f22;
+
+  /* 引用块：原来是 f0fdff 青色 */
+  --md-theme-blockquote-bg-color: #f9f2e6;
+  --md-theme-quote-bg-color: #f9f2e6;
+  --md-theme-quote-border-color: #d9cab1;
+  --md-theme-quote-color: #6d5742;
+
+  /* 滚动条 */
+  --md-scrollbar-bg-color: transparent;
+  --md-scrollbar-thumb-color: #ddcdb4;
+  --md-scrollbar-thumb-hover-color: #cbb699;
+
+  --md-theme-radius-s: 6px;
+  --md-theme-radius-m: 10px;
+}
+
+/* 编辑器外壳：去掉库自带的冷边框，交给外层稿纸容器负责圆角与描边 */
+.wc-md .md-editor.md-editor {
+  border: 0;
+  border-radius: 0;
+  background-color: transparent;
+}
+
+/* 以下结构规则同样要 3 个类：
+   库的选择器就是 `.md-editor .md-editor-*`（0,2,0），
+   而库的样式在 index.css 之后加载，同权重会输给它。 */
+.wc-md .md-editor .md-editor-toolbar-wrapper {
+  border-bottom: 1px solid var(--wc-line);
+  background-color: transparent;
+}
+
+.wc-md .md-editor .md-editor-toolbar-item {
+  border-radius: 8px;
+  color: var(--wc-ink-2);
+}
+
+.wc-md .md-editor .md-editor-toolbar-item:hover {
+  background-color: var(--wc-surface-2);
+  color: var(--wc-accent-hover);
+}
+
+/* 写作区与预览区的分隔线 */
+.wc-md .md-editor .md-editor-input-wrapper {
+  border-color: var(--wc-line);
+}
+
+/* 主写作区是 CodeMirror 6（.cm-*），不是 textarea；
+   它自带运行时注入的主题样式，只能直接用类名压。
+   注意 --md-color 对它不生效，必须显式给 color。 */
+.wc-md .md-editor .cm-editor {
+  background-color: transparent;
+  color: var(--md-color);
+}
+
+.wc-md .md-editor .cm-content {
+  color: var(--md-color);
+  font-size: 15px;
+  line-height: 1.85;
+  padding: 22px 26px;
+  caret-color: var(--wc-accent);
+}
+
+.wc-md .md-editor .cm-gutters {
+  background-color: transparent;
+  border-color: var(--wc-line);
+  color: var(--wc-ink-3);
+}
+
+.wc-md .md-editor .md-editor-preview-wrapper {
+  padding: 0;
+}
+
+.wc-md .md-editor .md-editor-preview {
+  padding: 22px 30px;
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--md-color);
+}
+
+/* ---------- 编辑器页面外壳 ---------- */
+
+/* 稿纸：浮在米色背景上的一张纸 */
+.wc-ed-paper {
+  flex: 1;
+  min-height: 0;
+  margin: 0 26px 22px;
+  background-color: var(--wc-surface);
+  border: 1px solid var(--wc-line);
+  border-radius: var(--wc-radius);
+  overflow: hidden;
+  box-shadow:
+    0 1px 2px rgba(88, 64, 40, 0.04),
+    0 10px 30px -22px rgba(88, 64, 40, 0.3);
+}
+
+/* 头部：标题 + 一行元信息，右侧只留一个实心主按钮 */
+.wc-ed-head {
+  padding: 24px 30px 12px;
+}
+
+.wc-ed-title {
+  display: block;
+  width: 100%;
+  padding: 0 2px 8px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background-color: transparent;
+  font-size: 25px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--wc-ink);
+  transition: border-color 0.16s ease;
+}
+
+.wc-ed-title::placeholder {
+  color: #c3b299;
+  font-weight: 500;
+}
+
+.wc-ed-title:focus {
+  outline: none;
+  border-bottom-color: var(--wc-line-strong);
+}
+
+.wc-ed-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-left: 2px;
+}
+
+.wc-ed-meta-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ============================================================
+   团队工作台（Team Workspace）
+   ------------------------------------------------------------
+   这是一个三栏工作台（文档列表 / 正文 / 评论侧栏），和列表页
+   的「页头 + 卡片流」不是一类版式，所以不复用 .wc-page-head。
+   但底色与层次仍然沿用同一套 token：
+     · 外壳回到米色纸面，顶栏是一条更窄的暖白条
+     · 左右两栏用 surface-2 微暖底，中间正文浮起成一张纸
+     · 三栏之间只留 1px 暖线和 14px 留白，不再靠三种底色硬分
+   ============================================================ */
+
+.ws-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 60px;
+  padding: 0 18px;
+  flex: none;
+  background-color: var(--wc-surface);
+  border-bottom: 1px solid var(--wc-line);
+}
+
+/* 顶栏导航：胶囊分段，选中项用浅底 + 深字，不用实心按钮抢视线 */
+.ws-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1;
+  color: var(--wc-ink-3);
+  transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.ws-tab:hover {
+  background-color: var(--wc-surface-2);
+  color: var(--wc-ink-2);
+}
+
+.ws-tab.is-on {
+  background-color: var(--wc-surface-2);
+  color: var(--wc-ink);
+  font-weight: 600;
+}
+
+.ws-tab.is-on svg {
+  color: var(--wc-accent);
+}
+
+.ws-tab svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* 左/右栏：微暖底，靠一条线跟正文分开 */
+.ws-side {
+  background-color: var(--wc-surface-2);
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.ws-side-left {
+  border-right: 1px solid var(--wc-line);
+}
+
+.ws-side-right {
+  border-left: 1px solid var(--wc-line);
+}
+
+/* 侧栏里的小标题 */
+.ws-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--wc-ink-3);
+}
+
+/* 侧栏列表项 */
+.ws-row {
+  border-radius: 10px;
+  padding: 8px 10px;
+  transition: background-color 0.15s ease;
+  cursor: pointer;
+}
+
+.ws-row:hover {
+  background-color: rgba(231, 220, 201, 0.55);
+}
+
+.ws-row.is-on {
+  background-color: var(--wc-surface);
+  box-shadow: 0 1px 2px rgba(88, 64, 40, 0.06);
+  outline: 1px solid var(--wc-line);
+}
+
+/* 正文纸面：浮在米色底上，四周留白，跟编辑器页的稿纸呼应 */
+.ws-paper {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 14px;
+  background-color: var(--wc-surface);
+  border: 1px solid var(--wc-line);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(88, 64, 40, 0.04),
+    0 10px 28px -22px rgba(88, 64, 40, 0.28);
+  overflow: hidden;
+}
+
+/* 纸面顶部的一条工具行（面包屑 + 操作） */
+.ws-paper-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 52px;
+  padding: 0 20px;
+  flex: none;
+  border-bottom: 1px solid var(--wc-line);
+}
+
+/* 正文排版：表格在窄栏里最容易糊成一片，单独压一下 */
+.ws-paper .markdown-preview table {
+  width: 100%;
+  font-size: 13px;
+}
+
+.ws-paper .markdown-preview th,
+.ws-paper .markdown-preview td {
+  padding: 7px 10px;
+  border: 1px solid var(--wc-line);
+  word-break: break-word;
+  vertical-align: top;
+}
+
+.ws-paper .markdown-preview thead th {
+  background-color: var(--wc-surface-2);
+  color: var(--wc-ink-2);
+  font-weight: 600;
+}
+
+/* 气泡里的 markdown：段落间距收紧，首尾不留空 */
+.ws-bub .markdown-preview {
+  line-height: 1.7;
+}
+
+.ws-bub .markdown-preview > :first-child { margin-top: 0; }
+.ws-bub .markdown-preview > :last-child { margin-bottom: 0; }
+.ws-bub .markdown-preview p { margin: 0.55em 0; }
+
+/* 对话气泡：用户侧走主色实心，AI 侧走浅暖底 */
+.ws-bub {
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.ws-bub-user {
+  background-color: var(--wc-accent);
+  color: #fff;
+  border-top-right-radius: 4px;
+}
+
+.ws-bub-ai {
+  background-color: var(--wc-surface-2);
+  color: var(--wc-ink);
+  border-top-left-radius: 4px;
+}
+
+/* 细滚动条，三栏并排时不抢视线 */
+.ws-side ::-webkit-scrollbar,
+.ws-paper ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ws-side ::-webkit-scrollbar-thumb,
+.ws-paper ::-webkit-scrollbar-thumb {
+  background-color: rgba(139, 116, 92, 0.22);
+  border-radius: 999px;
+}
+
+/* 气泡里的标题不该按正文的 h1/h2 尺寸走，压到接近正文字号 */
+.ws-bub .markdown-preview h1,
+.ws-bub .markdown-preview h2,
+.ws-bub .markdown-preview h3 {
+  font-size: 1em;
+  font-weight: 600;
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0.7em 0 0.3em;
+}
+
+.ws-bub .markdown-preview ul,
+.ws-bub .markdown-preview ol {
+  margin: 0.4em 0;
+  padding-left: 1.3em;
+}
+
+.ws-bub .markdown-preview li {
+  margin: 0.2em 0;
+}
+
+/* 纸面里嵌 md-editor 时，编辑器不要再画一层自己的边框和圆角 */
+.ws-paper .md-editor {
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* ============ 主区空状态：叠纸线稿 + 双行动 ============ */
+.wce {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 44px 24px;
+}
+
+/* 三层错位的纸，像一叠还没写的稿纸 */
+.wce-art {
+  position: relative;
+  width: 132px;
+  height: 116px;
+  margin-bottom: 22px;
+}
+
+.wce-leaf {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 66px;
+  height: 84px;
+  margin: -42px 0 0 -33px;
+  border-radius: 9px;
+  background-color: var(--wc-surface, #fffdf9);
+  border: 1px solid var(--wc-line, #e7dcc9);
+}
+
+.wce-leaf-3 {
+  transform: rotate(-9deg) translate(-13px, 5px);
+  opacity: 0.5;
+}
+
+.wce-leaf-2 {
+  transform: rotate(7deg) translate(13px, 3px);
+  opacity: 0.75;
+}
+
+.wce-leaf-1 {
+  display: grid;
+  place-items: center;
+  color: var(--wc-accent, #b25f22);
+  box-shadow: var(--wc-shadow, 0 4px 14px -2px rgba(88, 64, 40, 0.08));
+}
+
+/* 纸上的三道横线，暗示可写 */
+.wce-leaf-1::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 13px;
+  height: 11px;
+  background-image: linear-gradient(
+    to bottom,
+    var(--wc-line, #e7dcc9) 0 1px,
+    transparent 1px 5px,
+    var(--wc-line, #e7dcc9) 5px 6px,
+    transparent 6px 10px,
+    var(--wc-line, #e7dcc9) 10px 11px
+  );
+}
+
+.wce-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--wc-ink-2, #6d5742);
+}
+
+.wce-desc {
+  margin-top: 7px;
+  max-width: 30em;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--wc-ink-3, #8b745c);
+}
+
+.wce-acts {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.wce-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 15px;
+  border-radius: 9px;
+  border: 1px solid var(--wc-line, #e7dcc9);
+  background-color: var(--wc-surface, #fffdf9);
+  color: var(--wc-ink-2, #6d5742);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s, transform 0.15s;
+}
+
+.wce-btn:hover {
+  border-color: var(--wc-line-strong, #d9cab1);
+  color: var(--wc-ink, #241b14);
+  transform: translateY(-0.5px);
+}
+
+.wce-btn.is-main {
+  border-color: transparent;
+  background-color: var(--wc-accent, #b25f22);
+  color: #fff8ef;
+  font-weight: 600;
+  box-shadow: 0 4px 12px -4px rgba(178, 95, 34, 0.5);
+}
+
+.wce-btn.is-main:hover {
+  background-color: var(--wc-accent-hover, #8e4a1b);
+  color: #fff8ef;
+}
+
+.wce-keys {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+  font-size: 11.5px;
+  color: var(--wc-ink-3, #8b745c);
+  opacity: 0.85;
+}
+
+.wce-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.wce-key kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background-color: var(--wc-surface-2, #f6f0e5);
+  border: 1px solid var(--wc-line, #e7dcc9);
+  font-family: inherit;
+  font-size: 10.5px;
+  line-height: 1;
+  color: var(--wc-ink-2, #6d5742);
+}
+
+.wce-key-sep {
+  width: 1px;
+  height: 11px;
+  background-color: var(--wc-line, #e7dcc9);
+}

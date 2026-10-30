@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>预览</title>
+  <script>
+    // __TEMP_PREVIEW__ 本地视觉走查用，上线前删除
+    // 后台的登录态由 pinia-plugin-persistedstate 存在 sys-v{版本}-user 里，
+    // 这里直接构造这份快照，跳过登录页。
+    var p = new URLSearchParams(location.search);
+    if (p.get('token')) {
+      localStorage.setItem('sys-v3.0.1-user', JSON.stringify({
+        language: 'zh',
+        isLogin: true,
+        isLock: false,
+        lockPassword: '',
+        info: {
+          userId: 6,
+          userName: p.get('name') || '尉迟年望',
+          phone: '18858886666',
+          roleType: 2,
+          roles: ['R_ADMIN'],
+          buttons: ['add', 'edit', 'delete', 'export', 'view', 'publish', 'config', 'manage']
+        },
+        searchHistory: [],
+        accessToken: p.get('token'),
+        refreshToken: ''
+      }));
+    }
+    location.replace(p.get('to') || '/');
+  </script>
+</head>
+<body></body>
+</html>
