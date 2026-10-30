@@ -109,7 +109,7 @@
       return { type: 'info' as const, text: '-' }
     }
 
-    return MEMBER_STATUS_CONFIG[status]
+    return MEMBER_STATUS_CONFIG[status ? 'true' : 'false']
   }
 
   const formatDateTime = (value?: string) => {

@@ -16,7 +16,6 @@
       />
 
       <ElDrawer
-        lDrawer
         v-model="showDrawer"
         :lock-scroll="false"
         :size="420"
@@ -137,6 +136,8 @@
     loading,
     pagination,
     getData,
+    searchParams,
+    resetSearchParams,
     handleSizeChange,
     handleCurrentChange,
     refreshData: refreshTableData
@@ -144,11 +145,12 @@
     core: {
       apiFn: (params) => fetchAdminCommentList(params as Api.Template.AdminCommentListParams),
       apiParams: {
-        current: 1,
+        page: 1,
         size: 10,
         sourceType: undefined,
         keyword: undefined
       },
+      paginationKey: { current: 'page', size: 'size' },
       columnsFactory: () => [
         { type: 'index', width: 54, label: '序号' },
         {

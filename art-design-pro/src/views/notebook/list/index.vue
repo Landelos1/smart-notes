@@ -191,6 +191,7 @@
 </template>
 
 <script setup lang="ts">
+  import request from '@/utils/http'
   import { Search } from '@element-plus/icons-vue'
   import { router } from '@/router'
   import { useDateFormat } from '@vueuse/core'
@@ -293,7 +294,7 @@
         type_name: item.isPublic ? '公开' : '私密',
         title: item.name,
         description: item.description,
-        create_time: item.createTime,
+        create_time: item.createTime || '',
         memberCount: item.memberCount ?? 0,
         fileCount: item.fileCount ?? 0
       }))
@@ -374,6 +375,7 @@
 
   const renameFile = (file: Api.SharedKnowledgeBase.KnowledgeBaseFileVO) => {
     if (!activeKnowledgeBaseId.value || !file.fileId) return
+    const knowledgeBaseId = activeKnowledgeBaseId.value
     ElMessageBox.prompt('请输入新的文件名', '重命名文件', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -382,7 +384,7 @@
       .then(async ({ value }) => {
         const name = (value || '').trim()
         if (!name) return
-        await fetchRenameKnowledgeBaseFile(activeKnowledgeBaseId.value, file.fileId!, name)
+        await fetchRenameKnowledgeBaseFile(knowledgeBaseId, file.fileId!, name)
         loadFiles()
       })
       .catch(() => {})
@@ -451,12 +453,12 @@
     formData.append('file', options.file)
     try {
       // 使用通用的文件上传接口
-      const res = await request.post<any>({
+      const res = await request.post<{ fileUrl?: string; url?: string }>({
         url: '/api/common/file/upload',
         params: formData
       })
-      if (res && res.url) {
-        editForm.coverUrl = res.url
+      if (res && (res.fileUrl || res.url)) {
+        editForm.coverUrl = res.fileUrl || res.url || ''
       }
     } catch (error) {
       console.error('上传封面失败:', error)

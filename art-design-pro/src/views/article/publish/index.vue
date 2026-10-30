@@ -2,7 +2,7 @@
 <template>
   <div>
     <div>
-      <div class="max-w-250 mx-auto my-5">
+      <div class="max-w-250 mx-auto my-5" v-loading="loadingDetail">
         <!-- 文章标题、类型 -->
         <ElRow :gutter="10">
           <ElCol :span="18">
@@ -30,7 +30,10 @@
         </ElRow>
 
         <!-- 富文本编辑器 -->
-        <ArtWangEditor class="mt-2.5" v-model="editorHtml" />
+        <ElTabs class="mt-2.5">
+          <ElTabPane label="编辑 Markdown"><ElInput v-model="editorHtml" type="textarea" :rows="18" placeholder="输入笔记内容，支持 Markdown 格式" /></ElTabPane>
+          <ElTabPane label="预览"><div class="p-4 whitespace-normal break-words" v-html="previewHtml"></div></ElTabPane>
+        </ElTabs>
 
         <div class="p-5 mt-5 art-card-xs">
           <h2 class="mb-5 text-xl font-medium">发布设置</h2>
@@ -58,14 +61,14 @@
                 <div class="mt-2 text-xs text-g-700">建议尺寸 16:9，jpg/png 格式</div>
               </div>
             </ElFormItem>
-            <ElFormItem label="可见">
+            <ElFormItem label="发布到笔记广场">
               <ElSwitch v-model="visible" />
             </ElFormItem>
           </ElForm>
 
           <div class="flex justify-end">
-            <ElButton type="primary" @click="submit" class="w-25">
-              {{ pageMode === PageModeEnum.Edit ? '保存' : '发布' }}
+            <ElButton type="primary" @click="submit" class="w-25" :loading="submitting" :disabled="loadingDetail || detailLoadFailed">
+              {{ pageMode === PageModeEnum.Edit ? '保存' : visible ? '发布' : '保存草稿' }}
             </ElButton>
           </div>
         </div>
@@ -81,6 +84,7 @@
 </template>
 
 <script setup lang="ts">
+  import MarkdownIt from 'markdown-it'
   import { Plus } from '@element-plus/icons-vue'
   import { useUserStore } from '@/store/modules/user'
   import EmojiText from '@/utils/ui/emojo'
@@ -88,6 +92,7 @@
   import { useCommon } from '@/hooks/core/useCommon'
   import { router } from '@/router'
   import { fetchCreateNote, fetchGetNoteDetail, fetchUpdateNote } from '@/api/note'
+  import { fetchGetNoteSquareDetail, fetchPublishNoteSquare, fetchUnpublishNoteSquare } from '@/api/note-square'
   import { fetchGetUserNotebooks } from '@/api/notebook'
 
   defineOptions({ name: 'ArticlePublish' })
@@ -138,24 +143,16 @@
   const articleType = ref<number>()
   const articleTypes = ref<ArticleType[]>([])
   const editorHtml = ref('')
-  const createDate = ref('')
+  const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true })
+  const previewHtml = computed(() => markdown.render(editorHtml.value))
+  const submitting = ref(false)
+  const loadingDetail = ref(false)
+  const detailLoadFailed = ref(false)
   const cover = ref('')
   const visible = ref(true)
+  const isPublishedOnSquare = ref(false)
 
   const currentNoteDetail = ref<Api.Note.NoteDetailVO | null>(null)
-
-  /**
-   * 初始化页面模式（新增或编辑）
-   */
-  const initPageMode = () => {
-    pageMode.value = noteId.value ? PageModeEnum.Edit : PageModeEnum.Add
-
-    if (pageMode.value === PageModeEnum.Edit) {
-      getArticleDetail()
-    } else {
-      createDate.value = formatDate(useNow().value)
-    }
-  }
 
   /**
    * 获取文章分类列表
@@ -175,12 +172,6 @@
       console.error('获取文章分类失败:', error)
       ElMessage.error('获取文章分类失败')
     }
-
-    // TODO: 替换为真实 API 调用
-    // const res = await ArticleService.getArticleTypes({})
-    // if (res.code === ApiStatus.success) {
-    //   articleTypes.value = res.data
-    // }
   }
 
   /**
@@ -194,18 +185,19 @@
       articleName.value = data.title
       articleType.value = data.notebookId
       editorHtml.value = data.contentMd || data.contentHtml || ''
-      visible.value = data.status === 1
+      const square = await fetchGetNoteSquareDetail(noteId.value)
+      isPublishedOnSquare.value = square.squareStatus === 1
+      visible.value = isPublishedOnSquare.value
+      cover.value = square.coverUrl || ''
+      if (!articleTypes.value.some(item => item.id === data.notebookId)) {
+        articleTypes.value.push({ id: data.notebookId, name: data.notebookName || '原笔记本' })
+      }
     } catch (error) {
+      detailLoadFailed.value = true
+      currentNoteDetail.value = null
       console.error('获取文章详情失败:', error)
       ElMessage.error('获取文章详情失败')
     }
-  }
-
-  /**
-   * 格式化日期为 YYYY-MM-DD 格式
-   */
-  const formatDate = (date: string | Date): string => {
-    return useDateFormat(date, 'YYYY-MM-DD').value
   }
 
   /**
@@ -231,24 +223,18 @@
   }
 
   /**
-   * 清理代码块中的多余空格
-   */
-  const cleanCodeContent = (content: string): string => {
-    return content.replace(/(\s*)<\/code>/g, '</code>')
-  }
-
-  /**
    * 新增文章
    */
   const addArticle = async () => {
     if (!validateArticle()) return
 
+    let createdNoteId: number | null = null
     try {
-      const cleanedContent = cleanCodeContent(editorHtml.value)
+      const cleanedContent = editorHtml.value
 
       if (!articleType.value) return
 
-      await fetchCreateNote({
+      const createdNote = await fetchCreateNote({
         notebookId: articleType.value,
         title: articleName.value,
         contentMd: cleanedContent,
@@ -257,26 +243,30 @@
         tags: []
       })
 
-      router.push({ name: 'ArticleList', query: { notebookId: articleType.value } })
+      createdNoteId = Number(createdNote.id)
+      if (!Number.isFinite(createdNoteId) || createdNoteId <= 0) {
+        throw new Error('笔记已创建，但服务端没有返回有效的笔记编号')
+      }
 
-      // TODO: 替换为真实 API 调用
-      // const params = {
-      //   title: articleName.value,
-      //   type: articleType.value,
-      //   content: cleanedContent,
-      //   cover: cover.value,
-      //   visible: visible.value
-      // }
-      // const res = await ArticleService.addArticle(params)
-      // if (res.code === ApiStatus.success) {
-      //   ElMessage.success('文章发布成功')
-      //   router.push({ name: 'ArticleList' })
-      // }
+      currentNoteDetail.value = createdNote
+      pageMode.value = PageModeEnum.Edit
+      const shouldPublish = visible.value
+      await router.replace({ name: 'ArticlePublish', query: { id: String(createdNoteId) } })
 
-      console.log('新增文章:', { cleanedContent })
+      if (shouldPublish) {
+        await fetchPublishNoteSquare({ noteId: createdNoteId, coverUrl: cover.value || undefined })
+        isPublishedOnSquare.value = true
+        await router.push({ name: 'ArticleList', query: { notebookId: articleType.value } })
+      } else {
+        ElMessage.success('草稿已保存，开启发布开关后可发布到笔记广场')
+      }
     } catch (error) {
       console.error('发布文章失败:', error)
-      ElMessage.error('发布文章失败')
+      ElMessage.error(
+        createdNoteId
+          ? '笔记已保存，但发布到笔记广场失败；可再次点击保存重试'
+          : '保存笔记失败'
+      )
     }
   }
 
@@ -286,12 +276,13 @@
   const editArticle = async () => {
     if (!validateArticle()) return
 
+    let noteSaved = false
     try {
-      const cleanedContent = cleanCodeContent(editorHtml.value)
+      const cleanedContent = editorHtml.value
 
       if (!noteId.value || !articleType.value) return
 
-      await fetchUpdateNote({
+      currentNoteDetail.value = await fetchUpdateNote({
         noteId: noteId.value,
         title: articleName.value,
         contentMd: cleanedContent,
@@ -299,39 +290,38 @@
         isPinned: currentNoteDetail.value?.isPinned ?? false,
         tags: currentNoteDetail.value?.tags ?? []
       })
+      noteSaved = true
 
-      router.push({ name: 'ArticleList', query: { notebookId: articleType.value } })
+      if (visible.value) {
+        await fetchPublishNoteSquare({ noteId: noteId.value, coverUrl: cover.value || undefined })
+        isPublishedOnSquare.value = true
+      } else if (isPublishedOnSquare.value) {
+        await fetchUnpublishNoteSquare(noteId.value)
+        isPublishedOnSquare.value = false
+      }
 
-      // TODO: 替换为真实 API 调用
-      // const params = {
-      //   id: route.query.id,
-      //   title: articleName.value,
-      //   type: articleType.value,
-      //   content: cleanedContent,
-      //   cover: cover.value,
-      //   visible: visible.value
-      // }
-      // const res = await ArticleService.editArticle(params)
-      // if (res.code === ApiStatus.success) {
-      //   ElMessage.success('文章保存成功')
-      //   router.push({ name: 'ArticleList' })
-      // }
-
-      console.log('编辑文章:', { cleanedContent })
+      if (isPublishedOnSquare.value) {
+        await router.push({ name: 'ArticleList', query: { notebookId: articleType.value } })
+      } else {
+        ElMessage.success('草稿已保存，尚未发布到笔记广场')
+      }
     } catch (error) {
       console.error('保存文章失败:', error)
-      ElMessage.error('保存文章失败')
+      ElMessage.error(noteSaved ? '笔记已保存，但笔记广场状态更新失败' : '保存笔记失败')
     }
   }
 
   /**
    * 提交表单（新增或编辑）
    */
-  const submit = () => {
-    if (pageMode.value === PageModeEnum.Edit) {
-      editArticle()
-    } else {
-      addArticle()
+  const submit = async () => {
+    if (submitting.value || loadingDetail.value || detailLoadFailed.value) return
+    submitting.value = true
+    try {
+      if (pageMode.value === PageModeEnum.Edit) await editArticle()
+      else await addArticle()
+    } finally {
+      submitting.value = false
     }
   }
 
@@ -383,9 +373,28 @@
 
   const { scrollToTop } = useCommon()
 
-  onMounted(() => {
-    scrollToTop()
-    getArticleTypes()
-    initPageMode()
-  })
+  watch(() => route.fullPath, async () => {
+    if (route.name !== 'ArticlePublish' || submitting.value) return
+    loadingDetail.value = true
+    detailLoadFailed.value = false
+    try {
+      pageMode.value = noteId.value ? PageModeEnum.Edit : PageModeEnum.Add
+      await getArticleTypes()
+      if (noteId.value) await getArticleDetail()
+      else {
+        currentNoteDetail.value = null
+        articleName.value = ''
+        editorHtml.value = ''
+        cover.value = ''
+        visible.value = true
+        isPublishedOnSquare.value = false
+        articleType.value = articleTypes.value[0]?.id
+      }
+    } finally {
+      loadingDetail.value = false
+    }
+  }, { immediate: true })
+
+  onMounted(() => scrollToTop())
+
 </script>

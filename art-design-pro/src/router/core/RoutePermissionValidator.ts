@@ -41,8 +41,7 @@ export class RoutePermissionValidator {
     // 构建路径集合
     const pathSet = this.buildMenuPathSet(menuList)
 
-    // 检查路径是否在集合中（精确匹配或前缀匹配）
-    return pathSet.has(targetPath) || this.checkPathPrefix(targetPath, pathSet)
+    return pathSet.has(targetPath) || this.checkPathPattern(targetPath, pathSet)
   }
 
   /**
@@ -60,8 +59,8 @@ export class RoutePermissionValidator {
     }
 
     for (const menuItem of menuList) {
-      // 跳过隐藏的菜单项
-      if (menuItem.meta?.isHide || !menuItem.path) {
+      // 隐藏仅影响菜单展示。此列表已按角色过滤，详情和编辑页仍需允许访问。
+      if (!menuItem.path) {
         continue
       }
 
@@ -79,16 +78,20 @@ export class RoutePermissionValidator {
   }
 
   /**
-   * 检查目标路径是否匹配集合中的某个路径前缀
-   * 用于支持动态路由参数匹配，如 /user/123 匹配 /user
+   * 按完整路径匹配动态参数，避免父目录权限放行未授权的子页面。
    * @param targetPath 目标路径
    * @param pathSet 路径集合
    * @returns 是否匹配
    */
-  static checkPathPrefix(targetPath: string, pathSet: Set<string>): boolean {
-    // 遍历路径集合，检查是否有前缀匹配
+  static checkPathPattern(targetPath: string, pathSet: Set<string>): boolean {
     for (const menuPath of pathSet) {
-      if (targetPath.startsWith(`${menuPath}/`)) {
+      const pattern = menuPath
+        .split('/')
+        .map((segment) =>
+          segment.startsWith(':') ? '[^/]+' : segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        )
+        .join('/')
+      if (new RegExp(`^${pattern}/?$`).test(targetPath)) {
         return true
       }
     }

@@ -22,7 +22,7 @@
           </ElCol>
         </ElRow>
 
-        <ArtWangEditor class="mt-2.5" v-model="formData.content" />
+        <ElInput class="mt-2.5" v-model="formData.content" type="textarea" :rows="16" placeholder="输入模板内容，支持 Markdown 格式" />
 
         <div class="p-5 mt-5 art-card-xs">
           <h2 class="mb-5 text-xl font-medium">发布设置</h2>
@@ -142,7 +142,7 @@
     }
   })
 
-  const formData = reactive<Api.Template.TemplateCreateDTO>({
+  const formData = reactive<Omit<Required<Api.Template.TemplateCreateDTO>, 'id'>>({
     title: '',
     description: '',
     category: 'work',

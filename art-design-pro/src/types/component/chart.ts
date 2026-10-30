@@ -127,6 +127,7 @@ export interface BarChartProps extends BaseChartProps, AxisDisplayProps, Interac
 
 // 折线图数据项接口
 export interface LineDataItem {
+  color?: string
   /** 系列名称 */
   name: string
   /** 数据值 */

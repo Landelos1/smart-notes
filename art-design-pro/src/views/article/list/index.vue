@@ -297,7 +297,7 @@
   }
 
   onMounted(async () => {
-    resetColumns()
+    resetColumns?.()
     await Promise.resolve()
   })
 </script>

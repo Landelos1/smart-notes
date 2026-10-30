@@ -124,7 +124,7 @@
   const previewLoading = ref(false)
   const previewData = ref<Api.Template.TemplateVO | null>(null)
 
-  const markdown = new MarkdownIt({ html: true, linkify: true, breaks: true })
+  const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
   const previewHtml = computed(() => {
     const content = previewData.value?.content || ''

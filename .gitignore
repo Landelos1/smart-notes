@@ -17,6 +17,7 @@ Thumbs.db
 # Local configuration and credentials.
 **/.env
 **/.env.*
+!**/.env.example
 /initialization-note-side/src/main/resources/application.yml
 /initialization-note-side/src/main/resources/application-*.yml
 !/initialization-note-side/src/main/resources/application-example.yml
