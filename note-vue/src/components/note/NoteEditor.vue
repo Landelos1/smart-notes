@@ -9,6 +9,7 @@ import SIcon from '@/components/ui/SIcon.vue'
 import { Plus, X, Database, BookOpen, Sparkles, PenLine, Wand2, FileText, ListChecks, Languages, Upload } from 'lucide-vue-next'
 import type { Note, Notebook } from '@/types/note'
 import { addNoteToKnowledgeBase } from '@/api/notes.js'
+import { generateLearningPlan } from '@/api/learning.js'
 import { publishNoteSquare } from '@/api/noteSquare.js'
 import { processNoteWithAI } from '@/api/noteAI.js'
 import { useModal } from '@/composables/useModal'
@@ -197,6 +198,7 @@ function applyReplace() {
 
 // 添加知识库加载状态
 const addingToKb = ref(false)
+const generatingLearningPlan = ref(false)
 // 笔记本选择下拉
 const showNotebookDropdown = ref(false)
 const modal = useModal()
@@ -230,6 +232,31 @@ async function handleAddToKnowledgeBase() {
     await modal.error('添加失败，请重试')
   } finally {
     addingToKb.value = false
+  }
+}
+
+async function handleGenerateLearningPlan() {
+  if (!props.note?.id) {
+    await modal.warning('请先保存笔记')
+    return
+  }
+
+  generatingLearningPlan.value = true
+  try {
+    await saver.flushAll()
+    const res = await generateLearningPlan(props.note.id, true)
+    if (res && res.code === 0) {
+      const taskCount = res.data?.tasks?.length || 0
+      const planCount = res.data?.reviewPlans?.length || 0
+      await modal.success(`已生成 ${taskCount} 个学习任务和 ${planCount} 个复习计划，可在“任务与复习”中查看`)
+    } else {
+      await modal.error(res?.message || '生成学习安排失败，请重试')
+    }
+  } catch (error) {
+    console.error('[NoteEditor] 生成学习安排失败:', error)
+    await modal.error(error instanceof Error ? error.message : '生成学习安排失败，请重试')
+  } finally {
+    generatingLearningPlan.value = false
   }
 }
 
@@ -412,6 +439,17 @@ function getCurrentNotebookName(): string {
           >
             <Database class="w-3.5 h-3.5" />
             {{ addingToKb ? '添加中' : '知识库' }}
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            class="h-7 gap-1.5 px-2 text-xs"
+            :disabled="generatingLearningPlan"
+            @click="handleGenerateLearningPlan"
+          >
+            <ListChecks class="w-3.5 h-3.5" />
+            {{ generatingLearningPlan ? '生成中' : '学习安排' }}
           </Button>
 
           <Button

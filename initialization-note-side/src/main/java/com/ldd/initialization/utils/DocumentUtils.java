@@ -2,6 +2,7 @@ package com.ldd.initialization.utils;
 
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.DocumentSplitter;
+import dev.langchain4j.data.document.Metadata;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -14,8 +15,7 @@ public class DocumentUtils {
      * 创建文档 - 使用最简单稳定的方式
      */
     public static Document createDocumentWithMetadata(String content, Map<String, Object> metadataMap) {
-        // 使用最基本的API：只创建内容，不使用复杂的元数据
-        return Document.from(content);
+        return Document.from(content, Metadata.from(metadataMap == null ? Map.of() : metadataMap));
     }
     
     /**
@@ -55,8 +55,8 @@ public class DocumentUtils {
             int end = Math.min(start + chunkSize, textLength);
             String chunk = text.substring(start, end);
             
-            // 使用最简单的Document创建方式
-            Document chunkDoc = Document.from(chunk);
+            // 分段后保留来源元数据，保证 fileId、文件名和 PDF 页码能进入向量索引。
+            Document chunkDoc = Document.from(chunk, document.metadata());
             result.add(chunkDoc);
             
             // 修复逻辑：确保 start 总是向前移动
@@ -101,4 +101,4 @@ public class DocumentUtils {
         
         return String.format("文档长度: %d 字符, 预览: %s", length, preview);
     }
-} 
+}

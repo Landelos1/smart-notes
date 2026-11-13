@@ -21,6 +21,12 @@ export const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/learning-plans',
+    name: 'LearningPlans',
+    component: () => import('@/views/LearningPlans/index.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/note-square',
     name: 'NoteSquare',
     component: () => import('@/views/NoteSquare/NoteSquarePage.vue'),

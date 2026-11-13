@@ -1,7 +1,10 @@
 package com.ldd.initialization.service.ai;
 
 import com.ldd.initialization.config.ai.PgVectorConnectionPool;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
@@ -29,6 +32,9 @@ public class SharedKnowledgeBaseVectorService {
 
     @Autowired
     private EmbeddingModel embeddingModel;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     /**
      * 为共享知识库添加文档
@@ -123,7 +129,8 @@ public class SharedKnowledgeBaseVectorService {
                     double distance = rs.getDouble("distance");
                     double similarity = 1.0 - distance; // 将距离转换为相似度
 
-                    TextSegment textSegment = TextSegment.from(text);
+                    Map<String, Object> metadata = parseMetadata(rs.getString("metadata"));
+                    TextSegment textSegment = TextSegment.from(text, Metadata.from(metadata));
                     EmbeddingMatch<TextSegment> match = new EmbeddingMatch<>(
                             similarity,
                             rs.getString("embedding_id"),
@@ -141,6 +148,18 @@ public class SharedKnowledgeBaseVectorService {
         }
 
         return results;
+    }
+
+    private Map<String, Object> parseMetadata(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("解析共享知识库向量元数据失败: {}", e.getMessage());
+            return Map.of();
+        }
     }
 
     /**
@@ -271,4 +290,4 @@ public class SharedKnowledgeBaseVectorService {
 
         }
     }
-} 
+}

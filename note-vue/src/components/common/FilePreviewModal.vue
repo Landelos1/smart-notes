@@ -142,7 +142,7 @@ async function loadPdf(arrayBuffer: ArrayBuffer) {
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
     pdfDoc.value = markRaw(await loadingTask.promise)
     totalPages.value = pdfDoc.value.numPages
-    currentPage.value = 1
+    currentPage.value = Math.min(Math.max(props.file?.page || 1, 1), totalPages.value)
     await nextTick()
     await renderPdfPage()
   } catch (err) {
@@ -334,6 +334,13 @@ onUnmounted(() => {
         
         <!-- 内容区域 -->
         <div class="flex-1 overflow-auto bg-gray-100 p-4">
+          <div v-if="file?.quote" class="mx-auto mb-4 max-w-4xl rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <div class="mb-1 flex items-center justify-between gap-3">
+              <span class="text-xs font-semibold text-blue-800">检索到的原文</span>
+              <span v-if="file.page" class="shrink-0 text-xs text-blue-700">第 {{ file.page }} 页</span>
+            </div>
+            <p class="whitespace-pre-wrap break-words text-sm leading-6 text-gray-700">{{ file.quote }}</p>
+          </div>
           <!-- 加载状态 -->
           <div v-if="loading" class="flex flex-col items-center justify-center h-full">
             <Loader2 class="w-12 h-12 text-blue-600 animate-spin mb-4" />

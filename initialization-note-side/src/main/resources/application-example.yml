@@ -83,6 +83,13 @@ langchain4j:
       log-responses: false
       max-segments-per-batch: 10
 
+# 图片资料结构化使用 OpenAI 兼容视觉模型；不配置时 PDF 文本整理仍可用。
+ai:
+  vision:
+    base-url: ${AI_VISION_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${AI_VISION_API_KEY:YOUR_DASHSCOPE_API_KEY}
+    model: ${AI_VISION_MODEL:qwen-vl-plus}
+
 chat:
   stream:
     base-delay-ms: 50

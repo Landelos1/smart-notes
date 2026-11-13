@@ -3,6 +3,7 @@ package com.ldd.initialization.service.ai;
 
 import com.ldd.initialization.utils.DocumentUtils;
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.DocumentParser;
 import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.parser.TextDocumentParser;
@@ -21,8 +22,11 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 
 @Service
 @Slf4j
@@ -459,6 +463,36 @@ public class DocumentService {
         
         log.info("开始解析文档: {}, 大小: {} bytes, 类型: {}, 扩展名: {}", 
                 fileName, fileBytes.length, contentType, extension);
+
+        // PDF 按页解析，页码作为元数据随分段和向量检索保留，供 RAG 引用定位。
+        if ("pdf".equals(extension)) {
+            try (PDDocument pdf = PDDocument.load(fileBytes)) {
+                PDFTextStripper stripper = new PDFTextStripper();
+                for (int page = 1; page <= pdf.getNumberOfPages(); page++) {
+                    stripper.setStartPage(page);
+                    stripper.setEndPage(page);
+                    String text = stripper.getText(pdf);
+                    if (!DocumentUtils.isValidDocument(Document.from(text))) {
+                        continue;
+                    }
+                    Map<String, Object> metadata = new LinkedHashMap<>();
+                    metadata.put("fileName", fileName);
+                    metadata.put("fileSize", fileBytes.length);
+                    metadata.put("uploadTime", System.currentTimeMillis());
+                    metadata.put("contentType", contentType);
+                    metadata.put("extension", extension);
+                    metadata.put("page", page);
+                    metadata.put("pageCount", pdf.getNumberOfPages());
+                    documents.add(Document.from(text.trim(), Metadata.from(metadata)));
+                }
+                if (documents.isEmpty()) {
+                    throw new RuntimeException("PDF 未提取到可检索文本，扫描版 PDF 请先进行 OCR 或导出为图片");
+                }
+                return documents;
+            } catch (IOException e) {
+                throw new RuntimeException("PDF 解析失败: " + e.getMessage(), e);
+            }
+        }
 
         try (ByteArrayInputStream inputStream = new ByteArrayInputStream(fileBytes)) {
             DocumentParser parser;

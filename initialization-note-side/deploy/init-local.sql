@@ -51,6 +51,37 @@ CREATE TABLE IF NOT EXISTS public.t_note_tag (
     UNIQUE (note_id, tag_name)
 );
 
+-- 学习闭环：任务与复习计划由用户或 AI Agent 创建，均严格归属当前用户。
+CREATE TABLE IF NOT EXISTS public.t_task (
+    id bigserial PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES public.t_user(id) ON DELETE CASCADE,
+    note_id bigint REFERENCES public.t_note(id) ON DELETE SET NULL,
+    title varchar(255) NOT NULL,
+    description text,
+    status integer NOT NULL DEFAULT 0,
+    priority integer NOT NULL DEFAULT 2,
+    due_time timestamp,
+    completed_time timestamp,
+    source_type varchar(30) DEFAULT 'manual',
+    create_time timestamp DEFAULT CURRENT_TIMESTAMP,
+    update_time timestamp DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.t_review_plan (
+    id bigserial PRIMARY KEY,
+    user_id bigint NOT NULL REFERENCES public.t_user(id) ON DELETE CASCADE,
+    note_id bigint REFERENCES public.t_note(id) ON DELETE SET NULL,
+    title varchar(255) NOT NULL,
+    goal text,
+    frequency varchar(30) NOT NULL DEFAULT 'weekly',
+    start_date date NOT NULL,
+    end_date date NOT NULL,
+    status integer NOT NULL DEFAULT 0,
+    source_type varchar(30) DEFAULT 'manual',
+    create_time timestamp DEFAULT CURRENT_TIMESTAMP,
+    update_time timestamp DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS public.t_file_info (
     id bigserial PRIMARY KEY,
     original_filename varchar(255), file_name varchar(255), file_extension varchar(50),
@@ -365,6 +396,8 @@ END $$;
 -- 创建常用查询索引；唯一约束已同时创建对应索引。
 CREATE INDEX IF NOT EXISTS idx_note_notebook ON public.t_note(notebook_id);
 CREATE INDEX IF NOT EXISTS idx_note_user_update ON public.t_note(user_id, update_time DESC);
+CREATE INDEX IF NOT EXISTS idx_task_user_status_due ON public.t_task(user_id, status, due_time);
+CREATE INDEX IF NOT EXISTS idx_review_plan_user_status_date ON public.t_review_plan(user_id, status, start_date);
 CREATE INDEX IF NOT EXISTS idx_file_user_time ON public.t_file_info(user_id, create_time DESC);
 CREATE INDEX IF NOT EXISTS idx_shared_kb_creator ON public.t_shared_knowledge_base(creator_id);
 CREATE INDEX IF NOT EXISTS idx_kb_member_user ON public.t_knowledge_base_member(user_id);

@@ -6,15 +6,18 @@ import {
   Trash2, Download, Eye, X, Check, AlertCircle, Loader2, Edit2
 } from 'lucide-vue-next'
 import FilePreviewModal from '@/components/common/FilePreviewModal.vue'
+import { Sparkles, Save } from 'lucide-vue-next'
 import {
   getDocumentList,
   uploadDocument,
+  structureDocumentNote,
   deleteDocument,
   renameDocument,
   downloadDocument,
   rebuildDocumentIndex,
   batchDeleteDocuments
 } from '@/api/personalKnowledge'
+import { getNotebooks, createNote } from '@/api/notes'
 import { useModal } from '@/composables/useModal'
 
 const modal = useModal()
@@ -60,6 +63,13 @@ const previewFile = ref<KBDocument | null>(null)
 
 const currentPage = ref(1)
 const pageSize = ref(15)
+const structureInputRef = ref<HTMLInputElement | null>(null)
+const structuring = ref(false)
+const showStructuredNote = ref(false)
+const structuredNote = ref<any | null>(null)
+const structuredNotebooks = ref<any[]>([])
+const selectedStructuredNotebookId = ref<number | null>(null)
+const savingStructuredNote = ref(false)
 
 // 计算属性
 const allTags = computed(() => {
@@ -154,6 +164,63 @@ function handleFileSelect(e: Event) {
   if (target.files) {
     uploadFiles.value = Array.from(target.files)
     showUploadDialog.value = true
+  }
+}
+
+async function handleStructureFileSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  if (!['pdf', 'png', 'jpg', 'jpeg', 'webp', 'bmp'].includes(extension || '')) {
+    await modal.warning('请选择 PDF 或 PNG、JPG、WEBP、BMP 图片')
+    return
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    await modal.warning('文件不能超过20MB')
+    return
+  }
+  structuring.value = true
+  try {
+    const [result, notebooksResult] = await Promise.all([
+      structureDocumentNote(file),
+      getNotebooks()
+    ])
+    if (result.code !== 0 || !result.data) throw new Error(result.message || '资料整理失败')
+    structuredNote.value = result.data
+    structuredNotebooks.value = notebooksResult.code === 0 ? notebooksResult.data || [] : []
+    selectedStructuredNotebookId.value = structuredNotebooks.value[0]?.id ?? null
+    showStructuredNote.value = true
+  } catch (error) {
+    await modal.error(error instanceof Error ? error.message : '资料整理失败，请稍后重试')
+  } finally {
+    structuring.value = false
+  }
+}
+
+async function saveStructuredNote() {
+  if (!structuredNote.value || !selectedStructuredNotebookId.value) {
+    await modal.warning('请先选择要保存到的笔记本')
+    return
+  }
+  savingStructuredNote.value = true
+  try {
+    const result = await createNote({
+      notebookId: selectedStructuredNotebookId.value,
+      title: structuredNote.value.title,
+      contentMd: structuredNote.value.markdown,
+      tags: structuredNote.value.tags || [],
+      status: 1
+    })
+    if (result.code !== 0) throw new Error(result.message || '笔记保存失败')
+    await modal.success('结构化笔记已保存')
+    showStructuredNote.value = false
+    structuredNote.value = null
+  } catch (error) {
+    await modal.error(error instanceof Error ? error.message : '笔记保存失败')
+  } finally {
+    savingStructuredNote.value = false
   }
 }
 
@@ -398,6 +465,12 @@ function getFileTypeColor(fileType: string) {
             <input v-model="searchQuery" @keypress.enter="loadDocuments" placeholder="搜索文档名、内容关键词…" class="w-full h-9 pl-9 pr-4 text-sm bg-gray-50 border border-gray-200 rounded-lg placeholder:text-gray-400 focus:outline-none focus:bg-white focus:border-blue-300 focus:ring-2 focus:ring-blue-100 transition" />
           </div>
           <input ref="fileInputRef" type="file" multiple @change="handleFileSelect" class="hidden" accept=".pdf,.md,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.csv" />
+          <input ref="structureInputRef" type="file" @change="handleStructureFileSelect" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp" />
+          <Button variant="outline" class="h-9 px-3 shrink-0" :disabled="structuring" @click="structureInputRef?.click()">
+            <Loader2 v-if="structuring" class="w-4 h-4 animate-spin" />
+            <Sparkles v-else class="w-4 h-4" />
+            {{ structuring ? '正在整理…' : '资料生成笔记' }}
+          </Button>
           <Button class="h-9 px-4 shrink-0" @click="fileInputRef?.click()"><Upload class="w-4 h-4 mr-2" />上传文档</Button>
           <div class="flex gap-0.5 border border-gray-200 rounded-lg p-0.5 shrink-0">
             <button @click="viewMode = 'list'" :class="['p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-blue-50 text-blue-700' : 'text-gray-400 hover:bg-gray-50']"><List class="w-4 h-4" /></button>
@@ -589,5 +662,67 @@ function getFileTypeColor(fileType: string) {
       :file="previewFile"
       @download="handlePreviewDownload"
     />
+
+    <div v-if="showStructuredNote && structuredNote" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+        <div class="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+          <div class="flex items-start gap-3">
+            <div class="rounded-xl bg-blue-50 p-2.5 text-blue-600"><Sparkles class="h-5 w-5" /></div>
+            <div class="min-w-0">
+              <h2 class="text-lg font-semibold text-gray-900">结构化笔记已生成</h2>
+              <p class="mt-1 truncate text-sm text-gray-500">来源：{{ structuredNote.sourceFileName }} · {{ structuredNote.extractionMode }}</p>
+            </div>
+          </div>
+          <button class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" @click="showStructuredNote = false"><X class="h-5 w-5" /></button>
+        </div>
+        <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <div>
+            <label class="mb-1.5 block text-xs font-medium text-gray-500">笔记标题</label>
+            <input v-model="structuredNote.title" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
+          </div>
+          <section class="rounded-xl bg-blue-50/70 p-4">
+            <h3 class="mb-2 text-sm font-semibold text-blue-900">内容摘要</h3>
+            <p class="whitespace-pre-wrap text-sm leading-6 text-gray-700">{{ structuredNote.summary }}</p>
+          </section>
+          <div class="grid gap-4 md:grid-cols-2">
+            <section class="rounded-xl border border-gray-100 p-4">
+              <h3 class="mb-2 text-sm font-semibold text-gray-800">关键要点</h3>
+              <ul class="space-y-2 text-sm leading-5 text-gray-600">
+                <li v-for="(point, index) in structuredNote.keyPoints" :key="index" class="flex gap-2"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />{{ point }}</li>
+              </ul>
+            </section>
+            <section class="rounded-xl border border-gray-100 p-4">
+              <h3 class="mb-2 text-sm font-semibold text-gray-800">行动事项</h3>
+              <ul v-if="structuredNote.actionItems?.length" class="space-y-2 text-sm leading-5 text-gray-600">
+                <li v-for="(item, index) in structuredNote.actionItems" :key="index" class="flex gap-2"><Check class="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />{{ item }}</li>
+              </ul>
+              <p v-else class="text-sm text-gray-400">未识别到明确待办</p>
+            </section>
+          </div>
+          <section>
+            <h3 class="mb-2 text-sm font-semibold text-gray-800">建议标签</h3>
+            <div class="flex flex-wrap gap-2"><span v-for="tag in structuredNote.tags" :key="tag" class="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">{{ tag }}</span></div>
+          </section>
+          <details class="rounded-xl border border-gray-100 p-4">
+            <summary class="cursor-pointer text-sm font-semibold text-gray-700">预览完整 Markdown</summary>
+            <pre class="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-5 text-gray-600">{{ structuredNote.markdown }}</pre>
+          </details>
+          <div class="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">
+            <label class="shrink-0 text-sm text-gray-600">保存到笔记本</label>
+            <select v-model="selectedStructuredNotebookId" class="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none">
+              <option :value="null" disabled>请选择笔记本</option>
+              <option v-for="notebook in structuredNotebooks" :key="notebook.id" :value="notebook.id">{{ notebook.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+          <Button variant="outline" @click="showStructuredNote = false">稍后保存</Button>
+          <Button :disabled="savingStructuredNote || !selectedStructuredNotebookId" @click="saveStructuredNote">
+            <Loader2 v-if="savingStructuredNote" class="h-4 w-4 animate-spin" />
+            <Save v-else class="h-4 w-4" />保存为笔记
+          </Button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

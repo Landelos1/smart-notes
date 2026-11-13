@@ -58,6 +58,13 @@ export async function uploadDocument(file) {
 }
 
 /**
+ * 使用 PDF 或图片生成结构化 Markdown 笔记。
+ */
+export async function structureDocumentNote(file) {
+  return uploadFile('/api/documents/structure-note', file, 'file')
+}
+
+/**
  * 删除文档
  * @param {number} fileId - 文件ID
  * @returns {Promise<{code: number, data: null, message: string}>}

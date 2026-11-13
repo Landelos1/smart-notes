@@ -38,4 +38,6 @@ export interface PreviewFile {
   fileExtension: string
   fileSize: number
   mimeType?: string
+  quote?: string
+  page?: number
 }

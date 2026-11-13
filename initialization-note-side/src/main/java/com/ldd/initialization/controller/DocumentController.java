@@ -14,6 +14,8 @@ import com.ldd.initialization.service.FileInfoService;
 import com.ldd.initialization.service.TrashService;
 import com.ldd.initialization.service.ai.DocumentService;
 import com.ldd.initialization.vo.FileUploadVO;
+import com.ldd.initialization.vo.StructuredNoteVO;
+import com.ldd.initialization.service.ai.StructuredNoteService;
 
 import com.ldd.initialization.dto.BatchFileOperationDTO;
 import com.ldd.initialization.dto.FileRenameDTO;
@@ -58,6 +60,28 @@ public class DocumentController {
     
     @Autowired
     private TrashService trashService;
+
+    @Autowired
+    private StructuredNoteService structuredNoteService;
+
+    /**
+     * 将 PDF 或图片资料整理成结构化 Markdown 笔记。
+     */
+    @SaCheckLogin
+    @PostMapping("/structure-note")
+    public Result<StructuredNoteVO> structureNote(@RequestParam("file") MultipartFile file) {
+        try {
+            if (file.getSize() > 20 * 1024 * 1024) {
+                return Result.error("资料文件不能超过20MB");
+            }
+            return Result.success(structuredNoteService.structure(file));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            log.error("结构化资料失败: {}", e.getMessage(), e);
+            return Result.error("资料解析失败，请检查文件内容或模型配置");
+        }
+    }
     
     /**
      * 上传单个文档（自动获取当前用户）

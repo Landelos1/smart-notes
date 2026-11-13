@@ -46,6 +46,9 @@ Thumbs.db
 # Backend classpath dump generated for local launches.
 /initialization-note-side/cp.txt
 
+# Local seed scripts and generated sample files are used for isolated testing only.
+/initialization-note-side/deploy/demo-data/
+
 # Root-level copies; the canonical versions live under docs/.
 /接口目录.md
 /数据字段字典.md

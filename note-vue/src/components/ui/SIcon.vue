@@ -116,6 +116,11 @@ const PATHS: Record<string, string[]> = {
     DOT(14.5, 18)
   ],
   chat: ['M4.5 4.8h15v10.6H9.8l-3.6 3.1V15.4H4.5z']
+  ,
+  'check-square': [
+    'M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 18V6A1.5 1.5 0 0 1 5 4.5z',
+    'M7.5 12.2l2.8 2.8 6.2-6.2'
+  ]
 }
 
 const d = computed<string[]>(() => PATHS[props.name] || [])

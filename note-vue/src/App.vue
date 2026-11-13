@@ -14,6 +14,7 @@ const SharedKnowledgeBasePage = defineAsyncComponent(() => import('./views/Share
 const PersonalKnowledgeBasePage = defineAsyncComponent(() => import('./views/PersonalKnowledgeBase/index.vue'))
 const RecycleBinPage = defineAsyncComponent(() => import('./views/RecycleBin/index.vue'))
 const MemberSystemPage = defineAsyncComponent(() => import('./views/MemberSystem/index.vue'))
+const LearningPlansPage = defineAsyncComponent(() => import('./views/LearningPlans/index.vue'))
 const NoteSquarePage = defineAsyncComponent(() => import('./views/NoteSquare/NoteSquarePage.vue'))
 const NoteSquareFavoritesPage = defineAsyncComponent(() => import('./views/NoteSquare/Favorites.vue'))
 const NoteSquareLikesPage = defineAsyncComponent(() => import('./views/NoteSquare/Likes.vue'))
@@ -72,6 +73,7 @@ const currentPage = ref<
   'personal-knowledge-base' |
   'recycle-bin' |
   'member-system'
+  | 'learning-plans'
 >('notes')
 const recycleBinKey = ref(0)
 const showMemberCenterModal = ref(false)
@@ -591,7 +593,8 @@ function handleNavigate(page:
   'shared-knowledge-base' |
   'personal-knowledge-base' |
   'recycle-bin' |
-  'member-system'
+  'member-system' |
+  'learning-plans'
 ) {
   currentPage.value = page
   isSidebarOpen.value = false
@@ -608,7 +611,8 @@ function handleNavigate(page:
     'shared-knowledge-base': 'SharedKnowledgeBase',
     'personal-knowledge-base': 'PersonalKnowledgeBase',
     'recycle-bin': 'RecycleBin',
-    'member-system': 'MemberSystem'
+    'member-system': 'MemberSystem',
+    'learning-plans': 'LearningPlans'
   } as const
   void router.push({ name: routeNameByPage[page] })
   // 切换到回收站页面时增加key值，强制组件重新加载
@@ -681,7 +685,8 @@ const pageByRouteName: Record<string, typeof currentPage.value> = {
   SharedKnowledgeBase: 'shared-knowledge-base',
   PersonalKnowledgeBase: 'personal-knowledge-base',
   RecycleBin: 'recycle-bin',
-  MemberSystem: 'member-system'
+  MemberSystem: 'member-system',
+  LearningPlans: 'learning-plans'
 }
 
 watch(() => route.name, (name) => {
@@ -850,6 +855,7 @@ ${template.description}
       @item-restored="handleItemRestored"
     />
     <MemberSystemPage v-else-if="currentPage === 'member-system'" class="flex-1 min-w-0" />
+    <LearningPlansPage v-else-if="currentPage === 'learning-plans'" class="flex-1 min-w-0" />
     <TemplateCenterPage 
       v-else 
       class="flex-1 min-w-0"

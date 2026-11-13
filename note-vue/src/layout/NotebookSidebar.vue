@@ -19,6 +19,7 @@ type PageKey =
   | 'personal-knowledge-base'
   | 'recycle-bin'
   | 'member-system'
+  | 'learning-plans'
 
 interface Props {
   notebooks: Notebook[]
@@ -58,6 +59,7 @@ const navBrowse: { key: PageKey; icon: string; label: string }[] = [
 /** 底部工具区入口 */
 const navTools: { key: PageKey; icon: string; label: string; badge?: string }[] = [
   { key: 'ai-chat', icon: 'sparkle', label: 'AI 助手', badge: '新' },
+  { key: 'learning-plans', icon: 'check-square', label: '任务与复习' },
   { key: 'personal-knowledge-base', icon: 'archive', label: '个人知识库' },
   { key: 'shared-knowledge-base', icon: 'share', label: '共享知识库' },
   { key: 'template-center', icon: 'layout', label: '模板中心' },

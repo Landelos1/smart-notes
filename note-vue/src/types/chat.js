@@ -4,7 +4,7 @@
  * @property {string} id - 消息ID
  * @property {'user'|'assistant'} role - 角色
  * @property {string} content - 内容
- * @property {{fileId?: number, title?: string}[]} [citations] - 参考来源文件
+ * @property {{fileId?: number, title?: string, quote?: string, page?: number, chunkIndex?: number, score?: number, sourceType?: string}[]} [citations] - 参考来源文件
  * @property {Date} timestamp - 时间戳
  */
 

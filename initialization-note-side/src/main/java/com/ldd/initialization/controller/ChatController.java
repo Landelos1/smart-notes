@@ -41,6 +41,7 @@ import com.ldd.initialization.utils.TokenEstimateUtil;
 import com.ldd.initialization.result.Result;
 import com.ldd.initialization.service.TokenStatsService;
 import com.ldd.initialization.service.RequestStatsService;
+import com.ldd.initialization.service.AgentToolsService;
 import com.ldd.initialization.vo.TokenStatsVO;
 
 @RestController
@@ -69,6 +70,9 @@ public class ChatController {
 
     @Autowired
     private RequestStatsService requestStatsService;
+
+    @Autowired
+    private AgentToolsService agentToolsService;
 
     @Autowired
     private UserAISettingsService userAISettingsService;
@@ -167,6 +171,13 @@ public class ChatController {
             } else {
                 finalMessage = request.getMessage();
             }
+            // 业务型 Agent 在模型调用前读取当前用户数据，避免模型凭空编造任务、计划或笔记。
+            String agentBusinessContext = "";
+            if (request.getAgentId() != null && !request.getAgentId().isBlank()) {
+                agentBusinessContext = agentToolsService.buildContext(
+                        currentUserId, request.getMessage(), !useKnowledge);
+                finalMessage = finalMessage + agentBusinessContext;
+            }
             final List<ChatCitationVO> finalCitations = citations;
 
             // 调用流式聊天服务，添加速率控制
@@ -177,9 +188,9 @@ public class ChatController {
             Flux<String> responseFlux;
             if (userConsultantService.isCozeAgentConfigured(request.getAgentId())) {
                 // Coze 智能体自带系统提示词；若开启本地知识库增强，则附带"精简版"参考资料（不含本地系统提示词）
-                String cozeMessage = useKnowledge
+                String cozeMessage = (useKnowledge
                         ? userConsultantService.buildKnowledgeContextOnly(request.getUserId(), request.getMessage(), maxDocs)
-                        : request.getMessage();
+                        : request.getMessage()) + agentBusinessContext;
                 responseFlux = userConsultantService.streamChatWithCoze(request.getAgentId(), cozeMessage);
             } else if (Boolean.TRUE.equals(aiSettings.getUseCustomKey())
                     && StringUtils.hasText(aiSettings.getChatApiKey())

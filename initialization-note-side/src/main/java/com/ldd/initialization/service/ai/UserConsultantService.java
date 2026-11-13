@@ -581,6 +581,7 @@ public class UserConsultantService {
         }
 
         Map<Long, ChatCitationVO> dedup = new LinkedHashMap<>();
+        int chunkIndex = 0;
         List<Long> fileIdsNeedingLookup = new ArrayList<>();
 
         for (EmbeddingMatch<TextSegment> match : matches) {
@@ -588,6 +589,7 @@ public class UserConsultantService {
                 continue;
             }
             TextSegment segment = match.embedded();
+            chunkIndex++;
             Long fileId = extractLongMetadata(segment, "fileId");
             String title = extractTitle(segment);
 
@@ -601,6 +603,11 @@ public class UserConsultantService {
             ChatCitationVO citation = new ChatCitationVO();
             citation.setFileId(fileId);
             citation.setTitle(title);
+            citation.setQuote(trimQuote(segment.text()));
+            citation.setChunkIndex(chunkIndex);
+            citation.setScore(match.score());
+            citation.setPage(extractIntegerMetadata(segment, "page", "pageNumber", "pageIndex"));
+            citation.setSourceType(extractStringMetadata(segment, "extension", "contentType"));
             dedup.put(fileId, citation);
             if (title == null || title.isBlank()) {
                 fileIdsNeedingLookup.add(fileId);
@@ -632,6 +639,47 @@ public class UserConsultantService {
         }
 
         return new ArrayList<>(dedup.values());
+    }
+
+    private String trimQuote(String text) {
+        if (text == null) {
+            return null;
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        return normalized.length() > 360 ? normalized.substring(0, 360) + "…" : normalized;
+    }
+
+    private Integer extractIntegerMetadata(TextSegment segment, String... keys) {
+        if (segment == null || segment.metadata() == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = segment.metadata().toMap().get(key);
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            }
+            if (value instanceof String && !((String) value).isBlank()) {
+                try {
+                    return Integer.parseInt((String) value);
+                } catch (NumberFormatException ignored) {
+                    // Try the next metadata key.
+                }
+            }
+        }
+        return null;
+    }
+
+    private String extractStringMetadata(TextSegment segment, String... keys) {
+        if (segment == null || segment.metadata() == null) {
+            return null;
+        }
+        for (String key : keys) {
+            Object value = segment.metadata().toMap().get(key);
+            if (value != null && !String.valueOf(value).isBlank()) {
+                return String.valueOf(value);
+            }
+        }
+        return null;
     }
 
     private Long extractLongMetadata(TextSegment segment, String key) {

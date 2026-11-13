@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import Button from '@/components/ui/Button.vue'
-import { Send, Bot, User, Sparkles, Paperclip, Square, Upload as UploadIcon, BookmarkPlus, X, Check, FileText } from 'lucide-vue-next'
+import { Send, Bot, User, Sparkles, Paperclip, Square, Upload as UploadIcon, BookmarkPlus, X, Check, FileText, ExternalLink } from 'lucide-vue-next'
 import { formatRelativeTime } from '@/utils/timeFormat'
 import type { Message } from '@/types/chat'
 import { marked } from 'marked'
 import { uploadDocument } from '@/api/personalKnowledge'
 import { getNotebooks, createNote } from '@/api/notes'
+import FilePreviewModal from '@/components/common/FilePreviewModal.vue'
 
 interface Props {
   messages: Message[]
@@ -80,6 +81,23 @@ const noteTitle = ref('')
 const isSaving = ref(false)
 const saveError = ref('')
 const saveSuccess = ref(false)
+const showCitationPreview = ref(false)
+const citationPreviewFile = ref<any | null>(null)
+
+function openCitation(citation: any) {
+  if (!citation?.fileId) return
+  const title = citation.title || '来源文件'
+  const extension = title.includes('.') ? title.split('.').pop()?.toLowerCase() : 'txt'
+  citationPreviewFile.value = {
+    id: citation.fileId,
+    originalFilename: title,
+    fileName: title,
+    fileExtension: extension,
+    quote: citation.quote,
+    page: citation.page
+  }
+  showCitationPreview.value = true
+}
 
 // 自动滚动到底部
 watch(() => props.messages, async () => {
@@ -416,15 +434,25 @@ function renderMarkdown(content: string): string {
               </button>
             </div>
             <div v-if="message.role === 'assistant' && message.citations && message.citations.length" class="flex flex-wrap gap-2 mt-2 px-1">
-              <span
+                <button
                 v-for="(cite, idx) in message.citations"
                 :key="`${message.id || 'msg'}-${idx}`"
-                class="inline-flex items-center gap-1.5 max-w-full px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700"
+                  type="button"
+                  @click="openCitation(cite)"
+                  class="inline-flex items-center gap-1.5 max-w-full px-2 py-1 rounded-full border border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
                 :title="cite.title"
               >
                 <FileText class="w-3 h-3 text-gray-400" />
-                <span class="text-xs font-medium truncate max-w-[220px]">{{ cite.title }}</span>
-              </span>
+                <span class="flex max-w-[260px] min-w-0 flex-col">
+                  <span class="truncate text-xs font-medium">{{ cite.title || '来源文件' }}</span>
+                  <span class="text-[10px] text-gray-400">
+                    <span v-if="cite.page">第 {{ cite.page }} 页</span>
+                    <span v-if="cite.page && cite.score != null"> · </span>
+                    <span v-if="cite.score != null">相似度 {{ Math.round(cite.score * 100) }}%</span>
+                  </span>
+                </span>
+                  <ExternalLink class="w-3 h-3 text-gray-400 shrink-0" />
+                </button>
             </div>
           </div>
 
@@ -610,6 +638,12 @@ function renderMarkdown(content: string): string {
       </div>
     </div>
   </div>
+
+  <FilePreviewModal
+    v-model:visible="showCitationPreview"
+    :file="citationPreviewFile"
+    @download="() => undefined"
+  />
 </template>
 
 <style scoped>

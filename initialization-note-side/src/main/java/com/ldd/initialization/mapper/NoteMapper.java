@@ -21,6 +21,11 @@ import java.util.Map;
 @Mapper
 public interface NoteMapper extends BaseMapper<Note> {
 
+    @Select("<script>SELECT * FROM t_note WHERE user_id = #{userId} " +
+            "<if test='query != null and query != \"\"'> AND (title ILIKE CONCAT('%', #{query}, '%') OR content_md ILIKE CONCAT('%', #{query}, '%')) </if> " +
+            "ORDER BY update_time DESC LIMIT 20</script>")
+    List<Note> selectByUserIdForAgent(@Param("userId") Long userId, @Param("query") String query);
+
     /**
      * 分页查询笔记列表（简要信息）
      * @param page 分页对象
