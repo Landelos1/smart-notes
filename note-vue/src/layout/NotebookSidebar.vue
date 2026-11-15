@@ -73,6 +73,8 @@ const showUserMenu = ref(false)
 // 搜索与标签筛选
 const searchKeyword = ref('')
 const selectedTag = ref('')
+const tagSectionExpanded = ref(false)
+const showAllTags = ref(false)
 
 // 拖动排序状态
 const draggingId = ref<string | null>(null)
@@ -83,12 +85,31 @@ const isNotesView = computed(() => (props.currentPage || 'notes') === 'notes')
 
 // 聚合所有标签
 const allTags = computed(() => {
-  const tagSet = new Set<string>()
+  const tagCounts = new Map<string, number>()
   props.notes.forEach(note => {
-    ;(note.tags || []).forEach((t: string) => tagSet.add(t))
+    ;(note.tags || []).forEach((tag: string) => {
+      tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+    })
   })
-  return Array.from(tagSet)
+  return Array.from(tagCounts, ([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'zh-CN'))
 })
+
+const visibleTags = computed(() => {
+  if (showAllTags.value) return allTags.value
+  const popular = allTags.value.slice(0, 6)
+  if (selectedTag.value && !popular.some(tag => tag.name === selectedTag.value)) {
+    const selected = allTags.value.find(tag => tag.name === selectedTag.value)
+    if (selected) return [...popular, selected]
+  }
+  return popular
+})
+
+const selectedTagNoteCount = computed(() =>
+  selectedTag.value
+    ? props.notes.filter(note => (note.tags || []).includes(selectedTag.value)).length
+    : 0
+)
 
 // 搜索+标签筛选后的笔记
 function getFilteredNotes(noteList: Note[]): Note[] {
@@ -109,6 +130,7 @@ function getFilteredNotes(noteList: Note[]): Note[] {
 
 function selectTag(tag: string) {
   selectedTag.value = selectedTag.value === tag ? '' : tag
+  if (selectedTag.value) tagSectionExpanded.value = true
 }
 
 // 拖动排序（只允许非置顶笔记间排序）
@@ -486,17 +508,45 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- 标签 -->
-          <div v-if="allTags.length > 0" class="wcs-tags">
+          <!-- 标签筛选 -->
+          <div v-if="allTags.length > 0" class="wcs-tag-filter">
             <button
-              v-for="tag in allTags"
-              :key="tag"
-              class="wcs-tag"
-              :class="{ 'is-on': selectedTag === tag }"
-              @click="selectTag(tag)"
+              class="wcs-tag-head"
+              :aria-expanded="tagSectionExpanded"
+              @click="tagSectionExpanded = !tagSectionExpanded"
             >
-              {{ tag }}
+              <span>标签筛选</span>
+              <span class="wcs-tag-total">{{ allTags.length }}</span>
+              <SIcon
+                name="chevron-down"
+                :size="12"
+                class="wcs-tag-chevron"
+                :class="{ 'is-fold': !tagSectionExpanded }"
+              />
             </button>
+            <div v-if="selectedTag" class="wcs-tag-selection">
+              <span><strong>{{ selectedTag }}</strong><span> · {{ selectedTagNoteCount }} 篇笔记</span></span>
+              <button aria-label="清除标签筛选" @click="selectTag(selectedTag)">清除</button>
+            </div>
+            <div v-if="tagSectionExpanded" class="wcs-tag-options">
+              <button
+                v-for="tag in visibleTags"
+                :key="tag.name"
+                class="wcs-tag-option"
+                :class="{ 'is-on': selectedTag === tag.name }"
+                @click="selectTag(tag.name)"
+              >
+                <span>{{ tag.name }}</span>
+                <span class="wcs-tag-count">{{ tag.count }}</span>
+              </button>
+              <button
+                v-if="allTags.length > 6"
+                class="wcs-tag-more"
+                @click="showAllTags = !showAllTags"
+              >
+                {{ showAllTags ? '收起' : `查看全部 ${allTags.length} 个` }}
+              </button>
+            </div>
           </div>
 
           <!-- 全部笔记 -->
@@ -1152,33 +1202,139 @@ onMounted(() => {
   color: #d9cbb6;
 }
 
-/* ============ 标签 ============ */
-.wcs-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 2px 6px;
+/* ============ 标签筛选 ============ */
+.wcs-tag-filter {
+  margin: 5px 2px 7px;
+  padding: 3px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.wcs-tag {
-  padding: 1px 7px;
-  border-radius: 999px;
-  border: none;
-  font-size: 10.5px;
-  background: rgba(255, 255, 255, 0.07);
+.wcs-tag-head {
+  width: 100%;
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 2px 4px;
+  border: 0;
+  background: transparent;
   color: #a08d76;
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.wcs-tag-head:hover,
+.wcs-tag-head[aria-expanded='true'] {
+  color: #e4d6c2;
+}
+
+.wcs-tag-total {
+  min-width: 17px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: #8e7c66;
+  font-size: 9px;
+  text-align: center;
+}
+
+.wcs-tag-chevron {
+  margin-left: auto;
+  transition: transform 0.16s;
+}
+
+.wcs-tag-chevron.is-fold {
+  transform: rotate(-90deg);
+}
+
+.wcs-tag-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 2px 2px 4px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  background: rgba(178, 95, 34, 0.16);
+  color: #bba58a;
+  font-size: 10px;
+}
+
+.wcs-tag-selection strong {
+  color: #f0c18e;
+  font-weight: 600;
+}
+
+.wcs-tag-selection button,
+.wcs-tag-more {
+  flex: none;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #d09a67;
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.wcs-tag-selection button:hover,
+.wcs-tag-more:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #f0c18e;
+}
+
+.wcs-tag-options {
+  display: grid;
+  gap: 2px;
+  padding: 2px 1px 3px;
+}
+
+.wcs-tag-option {
+  width: 100%;
+  min-height: 25px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #b2a18c;
+  font: inherit;
+  font-size: 10.5px;
+  text-align: left;
   cursor: pointer;
   transition: background 0.14s, color 0.14s;
 }
 
-.wcs-tag:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #d9cbb6;
+.wcs-tag-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #eee1cf;
 }
 
-.wcs-tag.is-on {
-  background: #b25f22;
-  color: #fff6ea;
+.wcs-tag-option.is-on {
+  background: rgba(178, 95, 34, 0.22);
+  color: #f1bd85;
+}
+
+.wcs-tag-count {
+  color: #786853;
+  font-size: 9px;
+}
+
+.wcs-tag-option.is-on .wcs-tag-count {
+  color: #d8a979;
+}
+
+.wcs-tag-more {
+  justify-self: start;
+  min-height: 23px;
+  margin-top: 1px;
 }
 
 /* ============ 笔记本行（多一个折叠箭头） ============ */

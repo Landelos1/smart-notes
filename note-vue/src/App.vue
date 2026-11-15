@@ -267,72 +267,12 @@ const filteredNotes = computed(() => {
 
 // 创建新笔记
 async function handleCreateNote() {
-  let notebookId: string = ''
-  let notebookName: string = ''
-  
-  // 判断当前是否在特定笔记本下
-  const isInSpecificNotebook = selectedFilter.value !== '全部' && selectedFilter.value !== '最近7天'
-  
-  if (isInSpecificNotebook) {
-    // 在特定笔记本下，直接创建到该笔记本
-    notebookId = selectedFilter.value
-    const currentNotebook = notebooks.value.find(nb => nb.id === notebookId)
-    notebookName = currentNotebook?.name || ''
-  } else {
-    // 在全局视图下，弹窗让用户选择笔记本
-    // 过滤掉默认笔记本，只显示用户创建的笔记本
-    const availableNotebooks = notebooks.value.filter(nb => nb.name !== '默认笔记本')
-    
-    if (availableNotebooks.length === 0) {
-      // 如果没有可用笔记本，提示用户先创建
-      const shouldCreate = await modal.confirm({
-        title: '创建笔记本',
-        message: '您还没有笔记本，是否立即创建一个？',
-        type: 'info',
-        confirmText: '创建',
-        cancelText: '取消'
-      })
-      
-      if (shouldCreate) {
-        // 引导用户创建笔记本
-        const newName = await modal.prompt({
-          title: '新建笔记本',
-          message: '请输入笔记本名称',
-          placeholder: '请输入笔记本名称...',
-          confirmText: '创建',
-          cancelText: '取消'
-        })
-        
-        if (!newName || !newName.trim()) return
-        
-        try {
-          const res = await apiCreateNotebook({ name: newName.trim() })
-          if (res && res.code === 0 && res.data) {
-            const newNotebook = transformNotebook(res.data)
-            notebooks.value.push(newNotebook)
-            notebookId = newNotebook.id
-            notebookName = newNotebook.name
-          }
-        } catch (error) {
-          console.error('[App] 创建笔记本失败:', error)
-          await modal.error('创建笔记本失败，请重试')
-          return
-        }
-      } else {
-        return
-      }
-    } else {
-      // 有笔记本时，总是让用户手动选择（不自动选择）
-      const selectedId = await showNotebookSelector()
-      if (!selectedId) {
-        // 用户取消了选择
-        return
-      }
-      notebookId = selectedId
-      const selectedNotebook = notebooks.value.find(nb => nb.id === selectedId)
-      notebookName = selectedNotebook?.name || ''
-    }
+  const notebookId = await showNotebookSelector()
+  if (!notebookId) {
+    return
   }
+  const notebookName = notebooks.value.find(nb => nb.id === notebookId)?.name || ''
+  selectedFilter.value = notebookId
 
   // 创建笔记
   try {
@@ -349,6 +289,8 @@ async function handleCreateNote() {
       notes.value = [newNote, ...notes.value]
       selectedNoteId.value = newNote.id
       selectedNoteDetail.value = newNote
+      currentPage.value = 'notes'
+      void router.push({ name: 'Notes' })
       // 更新笔记本的笔记数量
       await loadNotebooks()
       console.log('[App] 创建笔记成功，所属笔记本:', notebookName || notebookId)
@@ -377,6 +319,30 @@ function handleNotebookSelect(notebookId: string) {
   if (pendingNotebookResolve.value) {
     pendingNotebookResolve.value(notebookId)
     pendingNotebookResolve.value = null
+  }
+}
+
+async function handleNotebookSelectorCreate() {
+  const name = await modal.prompt({
+    title: '新建笔记本',
+    message: '请输入笔记本名称',
+    placeholder: '请输入笔记本名称...',
+    confirmText: '创建',
+    cancelText: '取消'
+  })
+  if (!name?.trim()) return
+
+  try {
+    const res = await apiCreateNotebook({ name: name.trim() })
+    if (res?.code !== 0 || !res.data) {
+      throw new Error(res?.message || '创建笔记本失败')
+    }
+    const newNotebook = transformNotebook(res.data)
+    notebooks.value = [...notebooks.value, newNotebook]
+    handleNotebookSelect(newNotebook.id)
+  } catch (error) {
+    console.error('[App] 创建笔记本失败:', error)
+    await modal.error(error instanceof Error ? error.message : '创建笔记本失败，请重试')
   }
 }
 
@@ -892,6 +858,7 @@ ${template.description}
       :show="showNotebookSelectorDialog"
       :notebooks="notebooks.filter(nb => nb.name !== '默认笔记本')"
       @select="handleNotebookSelect"
+      @create-notebook="handleNotebookSelectorCreate"
       @cancel="handleNotebookSelectorCancel"
     />
     <MemberCenterModal v-model:visible="showMemberCenterModal" />

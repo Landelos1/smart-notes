@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, BookOpen } from 'lucide-vue-next'
+import { X, BookOpen, Plus, ChevronRight } from 'lucide-vue-next'
 import type { Notebook } from '@/types/note'
 
 interface Props {
@@ -11,11 +11,16 @@ defineProps<Props>()
 
 const emit = defineEmits<{
   'select': [notebookId: string]
+  'create-notebook': []
   'cancel': []
 }>()
 
 function handleSelect(notebookId: string) {
   emit('select', notebookId)
+}
+
+function handleCreateNotebook() {
+  emit('create-notebook')
 }
 
 function handleCancel() {
@@ -36,6 +41,9 @@ function handleCancel() {
       <div
         v-if="show"
         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="notebook-selector-title"
         @click.self="handleCancel"
       >
         <Transition
@@ -54,10 +62,10 @@ function handleCancel() {
             <!-- Header -->
             <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="p-2 rounded-full bg-blue-50">
-                  <BookOpen class="w-5 h-5 text-blue-500" />
+                <div class="p-2 rounded-full bg-orange-50">
+                  <BookOpen class="w-5 h-5 text-orange-700" />
                 </div>
-                <h3 class="text-lg font-semibold text-gray-900">选择笔记本</h3>
+                <h3 id="notebook-selector-title" class="text-lg font-semibold text-gray-900">选择笔记本</h3>
               </div>
               <button
                 class="text-gray-400 hover:text-gray-600 transition-colors"
@@ -68,26 +76,48 @@ function handleCancel() {
             </div>
 
             <!-- Content -->
-            <div class="px-2 py-3 max-h-80 overflow-y-auto">
-              <p class="px-3 text-sm text-gray-500 mb-3">请选择要将笔记创建到哪个笔记本：</p>
-              <div class="space-y-1">
+            <div class="px-2 pt-3">
+              <p class="px-3 text-sm text-gray-500 mb-3">选择笔记保存位置</p>
+              <button
+                type="button"
+                class="w-full px-4 py-3 flex items-center gap-3 rounded-lg border border-orange-200 bg-orange-50/70 hover:bg-orange-100/70 transition-colors text-left group"
+                @click="handleCreateNotebook"
+              >
+                <span class="p-1.5 rounded bg-white text-orange-700 group-hover:bg-orange-100 transition-colors">
+                  <Plus class="w-4 h-4" />
+                </span>
+                <span class="flex-1 min-w-0">
+                  <span class="block font-medium text-gray-900">新建笔记本</span>
+                  <span class="block text-xs text-gray-500">创建后直接在其中新建笔记</span>
+                </span>
+                <ChevronRight class="w-4 h-4 text-orange-600" />
+              </button>
+              <div class="px-3 pt-4 pb-2 text-xs font-medium text-gray-500">
+                {{ notebooks.length ? `选择已有笔记本 · ${notebooks.length}` : '已有笔记本' }}
+              </div>
+            </div>
+
+            <div class="px-2 pb-3 max-h-64 overflow-y-auto">
+              <div v-if="notebooks.length" class="space-y-1">
                 <button
                   v-for="notebook in notebooks"
                   :key="notebook.id"
-                  class="w-full px-4 py-3 flex items-center gap-3 rounded-lg hover:bg-blue-50 transition-colors text-left group"
+                  type="button"
+                  class="w-full px-4 py-3 flex items-center gap-3 rounded-lg hover:bg-orange-50/70 transition-colors text-left group"
                   @click="handleSelect(notebook.id)"
                 >
-                  <div class="p-1.5 rounded bg-gray-100 group-hover:bg-blue-100 transition-colors">
-                    <BookOpen class="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+                  <div class="p-1.5 rounded bg-gray-100 group-hover:bg-orange-100 transition-colors">
+                    <BookOpen class="w-4 h-4 text-gray-500 group-hover:text-orange-700" />
                   </div>
                   <div class="flex-1 min-w-0">
                     <div class="font-medium text-gray-900 truncate">{{ notebook.name }}</div>
                     <div class="text-xs text-gray-400">{{ notebook.noteCount || 0 }} 篇笔记</div>
                   </div>
-                  <svg class="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <ChevronRight class="w-5 h-5 text-gray-300 group-hover:text-orange-600 transition-colors" />
                 </button>
+              </div>
+              <div v-else class="px-4 py-5 text-center text-sm text-gray-400">
+                还没有笔记本，请先新建一个
               </div>
             </div>
 
