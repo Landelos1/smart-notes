@@ -19,6 +19,8 @@ public class AgentToolRequestDTO {
     private LocalDateTime dueTime;
     private String goal;
     private String frequency;
+    private Integer repeatDay;
+    private Integer intervalDays;
     private LocalDate startDate;
     private LocalDate endDate;
 }

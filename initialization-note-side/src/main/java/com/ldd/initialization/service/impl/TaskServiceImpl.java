@@ -32,6 +32,7 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements Ta
 
     @Override
     public TaskVO create(TaskCreateDTO dto, Long userId) {
+        validateTitle(dto.getTitle());
         validateNote(dto.getNoteId(), userId);
         Task task = new Task();
         BeanUtils.copyProperties(dto, task);
@@ -47,8 +48,11 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements Ta
 
     @Override
     public TaskVO update(Long id, TaskUpdateDTO dto, Long userId) {
+        validateTitle(dto.getTitle());
         Task task = owned(id, userId);
-        BeanUtils.copyProperties(dto, task);
+        task.setTitle(dto.getTitle().trim());
+        if (dto.getDescription() != null) task.setDescription(dto.getDescription());
+        task.setDueTime(dto.getDueTime());
         if (dto.getPriority() != null) task.setPriority(Math.max(1, Math.min(3, dto.getPriority())));
         if (dto.getStatus() != null) {
             task.setStatus(Math.max(0, Math.min(2, dto.getStatus())));
@@ -85,6 +89,11 @@ public class TaskServiceImpl extends ServiceImpl<TaskMapper, Task> implements Ta
     @Override
     public void deleteGeneratedByNote(Long noteId, Long userId) {
         baseMapper.deleteGeneratedByNote(noteId, userId);
+    }
+
+    private void validateTitle(String title) {
+        if (!StringUtils.hasText(title)) throw new BizException("任务标题不能为空");
+        if (title.length() > 255) throw new BizException("任务标题不能超过255个字符");
     }
 
     private void validateNote(Long noteId, Long userId) {

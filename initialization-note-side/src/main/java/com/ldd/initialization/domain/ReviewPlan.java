@@ -1,6 +1,7 @@
 package com.ldd.initialization.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -21,6 +22,12 @@ public class ReviewPlan {
     private String goal;
     /** daily/weekly/custom。 */
     private String frequency;
+    /** ISO weekday for weekly plans: 1=Monday ... 7=Sunday. */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private Integer repeatDay;
+    /** Recurrence interval in days for custom plans. */
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    private Integer intervalDays;
     private LocalDate startDate;
     private LocalDate endDate;
     /** 0进行中，1已完成，2已归档。 */

@@ -695,6 +695,24 @@ watch(() => route.name, (name) => {
   }
 }, { immediate: true })
 
+watch(() => route.query.noteId, async (noteId) => {
+  if (!noteId || !isLoggedIn.value) return
+  const id = String(Array.isArray(noteId) ? noteId[0] : noteId)
+  try {
+    const res = await getNoteDetail(id)
+    if (res?.code !== 0 || !res.data) throw new Error(res?.message || '来源笔记不存在或无权访问')
+    const note = transformNote(res.data)
+    selectedFilter.value = '全部'
+    selectedNoteId.value = note.id
+    selectedNoteDetail.value = note
+    if (!notes.value.some(item => item.id === note.id)) notes.value.unshift(note)
+    currentPage.value = 'notes'
+    await router.replace({ name: 'Notes' })
+  } catch (error) {
+    await modal.error(error instanceof Error ? error.message : '打开来源笔记失败')
+  }
+})
+
 // 监听路由参数,处理模板创建笔记
 watch(() => route.query.templateId, async (templateId, oldTemplateId) => {
   // 只在templateId真正变化且不为空时才执行,避免初始化时自动创建

@@ -27,10 +27,11 @@
 
 - 用户端、管理端和后端均已通过本地构建，前端针对性回归测试共 7 项通过。
 - 已实测登录、笔记操作、广场互动、真实 OSS 上传下载、向量索引、AI 问答、模板、共享库、团队文档及管理端发布。
+- 2026-11-15 完成学习闭环功能联调：Agent 可读取个人笔记、任务、复习计划和知识库；笔记可生成关联来源的任务与复习计划；复习支持每天、每周指定星期或自定义间隔，并可查看后续日期。
 - 项目仍处于完善阶段；一次联调不等于全部功能已经验收。支付、物理文件回收等边界见[测试与当前限制](#测试与当前限制)。
 - 仓库不附带真实账号、业务数据库、云服务密钥或运行中的服务，克隆后需要自行初始化并配置。
 
-具体操作、修复及验证范围见[前后端联调报告](docs/前后端联调报告-20261030.md)。
+具体操作、修复及验证范围见[学习闭环联调报告](docs/前后端联调报告-20261115.md)及[2026-10-30 核心功能联调报告](docs/前后端联调报告-20261030.md)。
 
 ## 需求与功能
 
@@ -90,7 +91,7 @@ PDF 解析按页保留 `page` 和 `pageCount` 元数据，分段时继续传递�
 
 - **Agent 业务上下文与受控工具**：选择业务型 Agent 聊天时，后端会按当前用户的问题读取其笔记、任务和复习计划，并把真实数据作为上下文提供给模型；写入操作通过 `POST /api/agent/tools/execute` 受控执行，用户 ID 始终来自登录态，模型或请求体不能越权指定其他用户。
 - **笔记生成学习安排**：打开一篇已保存的笔记，点击编辑器右上角的“学习安排”，后端调用聊天模型生成最多 5 个学习任务和 2 个复习计划，服务端校验字段、日期和笔记归属后落库；生成记录标记为 `note-ai`。
-- **任务与复习计划管理**：用户端侧栏新增“任务与复习”，支持查看、手动创建、完成/恢复和删除任务及复习计划。任务和计划也可以通过独立 REST 接口供 Agent 或其他客户端调用。
+- **任务与复习计划管理**：用户端侧栏新增“任务与复习”，支持查看、手动创建、完成/恢复和删除任务；复习计划可配置每天、每周指定星期或自定义间隔，查看后续日期、关联并跳转来源笔记。任务和计划也可以通过独立 REST 接口供 Agent 或其他客户端调用。
 
 模型返回的学习安排只作为建议，落库前仍会经过标题、优先级、日期范围和当前用户权限校验；AI 服务不可用时不会伪造成功数据。
 
@@ -104,7 +105,8 @@ smart-notes/
 ├─ docs/
 │  ├─ 接口目录.md                    # 路由、参数、权限和响应类型
 │  ├─ 数据字段字典.md                # DTO、VO 和实体字段
-│  └─ 前后端联调报告-20261030.md      # 修复、实测范围与限制
+│  ├─ 前后端联调报告-20261030.md      # 核心功能联调记录
+│  └─ 前后端联调报告-20261115.md      # 学习闭环联调记录
 ├─ note-vue/                         # 用户端
 │  ├─ src/api/                       # API 封装
 │  ├─ src/components/                # 编辑器与公共组件
@@ -118,7 +120,7 @@ smart-notes/
 │  └─ tests/                         # 路由权限回归
 ├─ initialization-note-side/         # Java 后端
 │  ├─ deploy/
-│  │  ├─ init-local.sql              # 32 张业务表 + documents 向量表
+│  │  ├─ init-local.sql              # 34 张业务表 + documents 向量表
 │  │  ├─ check-local.sql             # 隔离数据库结构验证
 │  │  └─ migrations/                 # 已有数据库迁移
 │  ├─ src/main/java/                 # 控制器、服务、数据访问及配置
@@ -162,7 +164,7 @@ createdb -h 127.0.0.1 -p 5432 -U postgres -W smart_notes
 psql -h 127.0.0.1 -p 5432 -U postgres -d smart_notes -W -v ON_ERROR_STOP=1 -f initialization-note-side/deploy/init-local.sql
 ```
 
-脚本会执行 `CREATE EXTENSION IF NOT EXISTS vector` 并创建 33 张表，需要相应建表及扩展权限。提示 `vector.control` 缺失表示 PostgreSQL 服务端尚未安装 pgvector，不能只靠 SQL 解决。
+脚本会执行 `CREATE EXTENSION IF NOT EXISTS vector` 并创建 35 张表（34 张业务表和 `documents` 向量表），需要相应建表及扩展权限。提示 `vector.control` 缺失表示 PostgreSQL 服务端尚未安装 pgvector，不能只靠 SQL 解决。
 
 也可在 IDEA / DataGrip 中连接目标 PostgreSQL 数据库，选择 `public` schema，执行整个 [init-local.sql](initialization-note-side/deploy/init-local.sql)，包括 `BEGIN` 和 `COMMIT`。失败时在同一控制台执行 `ROLLBACK;`，处理后重试。
 
@@ -298,7 +300,7 @@ RETURNING id, username, role_type, status;
 - HTTP 200 不一定表示业务成功，还需检查 `code`；下载和支付宝通知等接口不统一返回上述结构。
 - AI 流式接口使用 SSE，应按事件解析；上传还需区分文件保存和后续索引状态。
 
-完整路由、参数与权限见[接口目录](docs/接口目录.md)，字段见[数据字段字典](docs/数据字段字典.md)。文档包含 170 个路由，源码变化时需要同步更新；并非每个接口都已完成端到端测试。
+完整路由、参数与权限见[接口目录](docs/接口目录.md)，字段见[数据字段字典](docs/数据字段字典.md)。接口目录当前整理了 181 个路由；源码变化时需要同步更新，并非每个接口都已完成端到端测试。
 
 ## 构建与部署
 
@@ -316,7 +318,7 @@ mvn -B -f initialization-note-side/pom.xml -DskipTests package
 java -jar initialization-note-side/target/initialization-node-0.0.1-SNAPSHOT.jar --spring.config.location=file:E:/smart-notes-config/application.yml
 ```
 
-路径为示例，项目不会自动创建该目录。生产构建建议从干净检出目录生成产物，通过外部配置提供凭据，避免把本机 `application.yml` 随资源打进 JAR。
+路径为示例，项目不会自动创建该目录。Maven JAR 构建会排除 `application*.yml` / `application*.yaml` 配置文件；生产运行应通过外部配置提供凭据。IDEA 从项目资源目录启动时仍可读取本地 `application.yml`。
 
 ### 前端构建
 
@@ -355,10 +357,11 @@ pnpm build
 | 后端构建 | Java 17 编译与打包通过，使用 `-DskipTests` |
 | 用户端 | 类型检查、生产构建及 4 项自动保存回归通过 |
 | 管理端 | 类型检查、生产构建及 3 项路由权限回归通过 |
-| 数据库 | 空库初始化 33 表、pgvector、角色约束迁移与重复迁移通过 |
+| 数据库 | 空库初始化 35 表、pgvector、角色约束迁移与重复迁移通过 |
 | 核心业务联调 | 登录、笔记、广场、OSS、索引、AI、模板、共享库、团队、管理端发布通过 |
+| 学习闭环联调 | Agent 业务上下文与知识库隔离、受控工具、笔记生成任务/复习计划、任务和计划管理通过 |
 
-本次新增功能的自动检查：后端 `mvn -B -f initialization-note-side/pom.xml -DskipTests compile` 通过；用户端 `npm test` 的 4 项回归通过；用户端 `npm run build` 通过。需要可运行的 PostgreSQL、Redis、模型 API 和账号数据后，才能完成本机真实上传、RAG 引用和结构化笔记联调。
+2026-11-15 学习闭环变更通过后端打包、用户端 10 项自动回归和生产构建，并在本机运行的 PostgreSQL、Redis、模型 API、OSS 配置下完成真实 API 与浏览器联调。后续页面回归验证了周期字段持久化、来源笔记清除，以及带微秒截止时间任务的创建、完成和恢复。此前还核验了登录验证码、用户隔离、AI 生成与替换、知识库向量检索隔离、Agent 对话历史和移动端布局。逐项结果及测试数据清理情况见[学习闭环联调报告](docs/前后端联调报告-20261115.md)。
 
 GitHub Actions 使用 Java 17 / Node 22；前端对应目录变化时运行锁定依赖安装、回归测试与生产构建。检查通过代表所列检查通过，不代表完整业务验收。
 
@@ -374,7 +377,7 @@ GitHub Actions 使用 Java 17 / Node 22；前端对应目录变化时运行锁�
 6. **安全与运维需复核**：针对性修复不等于完整安全审计，生产 HTTPS、备份恢复、监控与跨浏览器测试需要单独完成。
 7. **历史数据不能用于部署**：管理端旧 SQL 导出已从当前版本移除，Git 旧提交仍有历史副本，不应初始化新环境。
 
-完整实测和清理记录见[联调报告](docs/前后端联调报告-20261030.md)。
+学习闭环实测和本轮清理记录见[2026-11-15 联调报告](docs/前后端联调报告-20261115.md)；此前核心业务实测见[2026-10-30 联调报告](docs/前后端联调报告-20261030.md)。
 
 ## 常见问题
 
@@ -405,6 +408,7 @@ GitHub Actions 使用 Java 17 / Node 22；前端对应目录变化时运行锁�
 - [请求与响应字段字典](docs/数据字段字典.md)
 - [数据库初始化、迁移和检查](initialization-note-side/deploy/README.md)
 - [2026-10-30 前后端联调报告](docs/前后端联调报告-20261030.md)
+- [2026-11-15 学习闭环联调报告](docs/前后端联调报告-20261115.md)
 - [后端配置示例](initialization-note-side/src/main/resources/application-example.yml)
 - [管理端配置示例](art-design-pro/.env.example)
 - [后端 CI](.github/workflows/backend-ci.yml) / [前端 CI](.github/workflows/frontend-ci.yml)

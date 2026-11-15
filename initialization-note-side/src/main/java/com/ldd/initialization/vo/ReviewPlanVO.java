@@ -12,6 +12,8 @@ public class ReviewPlanVO {
     private String title;
     private String goal;
     private String frequency;
+    private Integer repeatDay;
+    private Integer intervalDays;
     private LocalDate startDate;
     private LocalDate endDate;
     private Integer status;

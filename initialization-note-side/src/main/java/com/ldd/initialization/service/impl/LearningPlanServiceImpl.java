@@ -54,7 +54,7 @@ public class LearningPlanServiceImpl implements LearningPlanService {
         String content = StringUtils.hasText(note.getContentMd()) ? note.getContentMd() : note.getTitle();
         String prompt = "你是学习规划助手。请根据笔记生成适合个人执行的任务与复习计划。只返回严格 JSON，不要 Markdown 代码块。格式："
                 + "{\"tasks\":[{\"title\":\"\",\"description\":\"\",\"priority\":1,\"daysFromNow\":1}],"
-                + "\"reviewPlans\":[{\"title\":\"\",\"goal\":\"\",\"frequency\":\"daily|weekly|custom\",\"durationDays\":14}]}"
+                + "\"reviewPlans\":[{\"title\":\"\",\"goal\":\"\",\"frequency\":\"daily|weekly|custom\",\"intervalDays\":7,\"durationDays\":14}]}"
                 + "。任务最多 5 个，复习计划最多 2 个，字段必须简洁。笔记标题：" + note.getTitle() + "\n笔记内容：" + content;
         String raw = consultantService.simpleChat("learning-plan-" + userId + "-" + noteId, prompt);
         JsonNode root = parseJson(raw);
@@ -83,7 +83,12 @@ public class LearningPlanServiceImpl implements LearningPlanService {
                 if (!StringUtils.hasText(n.path("title").asText())) continue;
                 ReviewPlan plan = new ReviewPlan(); plan.setUserId(userId); plan.setNoteId(noteId);
                 plan.setTitle(n.path("title").asText()); plan.setGoal(n.path("goal").asText("巩固笔记核心知识"));
-                plan.setFrequency(n.path("frequency").asText("weekly")); plan.setStartDate(LocalDate.now());
+                String frequency = n.path("frequency").asText("weekly").toLowerCase();
+                if (!List.of("daily", "weekly", "custom").contains(frequency)) frequency = "weekly";
+                plan.setFrequency(frequency); plan.setStartDate(LocalDate.now());
+                plan.setRepeatDay("weekly".equals(frequency) ? plan.getStartDate().getDayOfWeek().getValue() : null);
+                plan.setIntervalDays("daily".equals(frequency) ? 1 : "custom".equals(frequency)
+                        ? Math.max(1, Math.min(365, n.path("intervalDays").asInt(7))) : 7);
                 plan.setEndDate(LocalDate.now().plusDays(Math.max(7, n.path("durationDays").asInt(14)))); plan.setStatus(0);
                 plan.setSourceType("note-ai"); plan.setCreateTime(LocalDateTime.now()); plan.setUpdateTime(LocalDateTime.now());
                 plans.add(reviewPlanService.saveGenerated(plan));

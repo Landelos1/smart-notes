@@ -114,7 +114,8 @@ public class AgentToolsService {
     private ReviewPlanVO createReviewPlan(AgentToolRequestDTO request, Long userId) {
         ReviewPlanCreateDTO dto = new ReviewPlanCreateDTO();
         dto.setTitle(request.getTitle()); dto.setGoal(request.getGoal()); dto.setNoteId(request.getNoteId());
-        dto.setFrequency(request.getFrequency()); dto.setStartDate(request.getStartDate() == null ? LocalDate.now() : request.getStartDate());
+        dto.setFrequency(request.getFrequency()); dto.setRepeatDay(request.getRepeatDay()); dto.setIntervalDays(request.getIntervalDays());
+        dto.setStartDate(request.getStartDate() == null ? LocalDate.now() : request.getStartDate());
         dto.setEndDate(request.getEndDate()); dto.setSourceType("agent");
         return reviewPlanService.create(dto, userId);
     }

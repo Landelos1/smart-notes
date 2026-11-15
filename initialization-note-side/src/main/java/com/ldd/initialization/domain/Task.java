@@ -1,6 +1,7 @@
 package com.ldd.initialization.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -22,7 +23,9 @@ public class Task {
     private Integer status;
     /** 1低，2中，3高。 */
     private Integer priority;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime dueTime;
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private LocalDateTime completedTime;
     private String sourceType;
     @TableField("create_time")

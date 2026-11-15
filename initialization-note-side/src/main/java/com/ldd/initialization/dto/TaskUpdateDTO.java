@@ -1,6 +1,5 @@
 package com.ldd.initialization.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -13,6 +12,5 @@ public class TaskUpdateDTO {
     private String description;
     private Integer status;
     private Integer priority;
-    @JsonFormat(pattern = "yyyy-MM-dd['T'HH:mm[:ss]][ HH:mm[:ss]]")
     private LocalDateTime dueTime;
 }

@@ -74,6 +74,8 @@ CREATE TABLE IF NOT EXISTS public.t_review_plan (
     title varchar(255) NOT NULL,
     goal text,
     frequency varchar(30) NOT NULL DEFAULT 'weekly',
+    repeat_day smallint,
+    interval_days integer NOT NULL DEFAULT 7,
     start_date date NOT NULL,
     end_date date NOT NULL,
     status integer NOT NULL DEFAULT 0,
