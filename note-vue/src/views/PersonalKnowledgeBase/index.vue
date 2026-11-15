@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, watch, inject, nextTick } from 'vue'
 import Button from '@/components/ui/Button.vue'
 import {
   Search, Upload, Filter, Grid, List, Plus, FileText, RefreshCw,
@@ -214,9 +214,10 @@ async function saveStructuredNote() {
       status: 1
     })
     if (result.code !== 0) throw new Error(result.message || '笔记保存失败')
-    await modal.success('结构化笔记已保存')
     showStructuredNote.value = false
     structuredNote.value = null
+    await nextTick()
+    await modal.success('结构化笔记已保存')
   } catch (error) {
     await modal.error(error instanceof Error ? error.message : '笔记保存失败')
   } finally {
@@ -703,10 +704,17 @@ function getFileTypeColor(fileType: string) {
             <h3 class="mb-2 text-sm font-semibold text-gray-800">建议标签</h3>
             <div class="flex flex-wrap gap-2"><span v-for="tag in structuredNote.tags" :key="tag" class="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600">{{ tag }}</span></div>
           </section>
-          <details class="rounded-xl border border-gray-100 p-4">
-            <summary class="cursor-pointer text-sm font-semibold text-gray-700">预览完整 Markdown</summary>
-            <pre class="mt-3 max-h-60 overflow-auto whitespace-pre-wrap rounded-lg bg-gray-50 p-3 text-xs leading-5 text-gray-600">{{ structuredNote.markdown }}</pre>
-          </details>
+          <div>
+            <label for="structured-note-markdown" class="mb-2 block text-sm font-semibold text-gray-800">Markdown 正文（可编辑）</label>
+            <textarea
+              id="structured-note-markdown"
+              v-model="structuredNote.markdown"
+              rows="14"
+              spellcheck="false"
+              class="min-h-64 w-full resize-y rounded-lg border border-gray-200 bg-white px-3 py-2 font-mono text-xs leading-5 text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              aria-label="Markdown 正文（可编辑）"
+            />
+          </div>
           <div class="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">
             <label class="shrink-0 text-sm text-gray-600">保存到笔记本</label>
             <select v-model="selectedStructuredNotebookId" class="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none">

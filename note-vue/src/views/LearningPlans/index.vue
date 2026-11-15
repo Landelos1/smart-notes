@@ -3,9 +3,10 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { BookOpen, CalendarDays, CheckCircle2, ChevronDown, Circle, ClipboardList, Clock3, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { createReviewPlan, createTask, deleteReviewPlan, deleteTask, getReviewPlans, getTasks, updateReviewPlan, updateTask } from '@/api/learning.js'
-import { getNotes } from '@/api/notes.js'
+import { getNoteDetail, getNotes } from '@/api/notes.js'
 import { useModal } from '@/composables/useModal'
 import { formatLocalDate, getUpcomingReviewDates } from '@/utils/reviewSchedule.js'
+import { getTaskNotebookLabel, sortTasks } from '@/utils/taskSorting.js'
 
 const modal = useModal()
 const router = useRouter()
@@ -15,6 +16,7 @@ const notes = ref([])
 const notesLoadError = ref('')
 const loading = ref(false)
 const tab = ref('tasks')
+const taskSort = ref('default')
 const newTaskTitle = ref('')
 const pendingActions = ref(new Set())
 const editingPlanId = ref(null)
@@ -39,9 +41,11 @@ function createPlanForm() {
 
 const planForm = ref(createPlanForm())
 
+const noteById = computed(() => new Map(notes.value.map(note => [String(note.id), note])))
 const pendingTasks = computed(() => tasks.value.filter(t => Number(t.status) !== 2))
 const completedTasks = computed(() => tasks.value.filter(t => Number(t.status) === 2))
-const noteById = computed(() => new Map(notes.value.map(note => [String(note.id), note])))
+const sortedPendingTasks = computed(() => sortTasks(pendingTasks.value, taskSort.value, noteById.value))
+const sortedCompletedTasks = computed(() => sortTasks(completedTasks.value, taskSort.value, noteById.value))
 
 function unwrap(res, fallback) {
   if (res?.code !== 0) throw new Error(res?.message || fallback)
@@ -57,7 +61,16 @@ async function load() {
     plans.value = unwrap(planRes, '复习计划加载失败') || []
     try {
       const notePage = unwrap(await getNotes({ page: 1, size: 100 }), '笔记来源加载失败')
-      notes.value = notePage?.data || notePage?.records || []
+      const listedNotes = notePage?.data || notePage?.records || []
+      const listedIds = new Set(listedNotes.map(note => String(note.id)))
+      const referencedIds = [...new Set([...tasks.value, ...plans.value]
+        .map(record => record.noteId).filter(Boolean).map(String))]
+      const missingIds = referencedIds.filter(id => !listedIds.has(id))
+      const noteDetails = await Promise.allSettled(missingIds.map(id => getNoteDetail(id)))
+      const additionalNotes = noteDetails
+        .filter(result => result.status === 'fulfilled' && result.value?.code === 0 && result.value.data)
+        .map(result => result.value.data)
+      notes.value = [...listedNotes, ...additionalNotes]
       notesLoadError.value = ''
     } catch (error) {
       notes.value = []
@@ -113,6 +126,10 @@ function sourceLabel(record) {
 function sourceNoteTitle(record) {
   const note = noteById.value.get(String(record.noteId))
   return note?.title || (record.noteId ? `笔记 #${record.noteId}` : '')
+}
+
+function taskNotebookLabel(task) {
+  return getTaskNotebookLabel(task, noteById.value)
 }
 
 function openSourceNote(noteId) {
@@ -242,17 +259,17 @@ onMounted(load)
     </section>
 
     <section v-if="tab === 'tasks'" class="lp-card">
-      <div class="lp-card-head"><div><h2>待办任务</h2><p>来自笔记拆解、AI Agent 或手动创建的学习行动。</p></div></div>
+      <div class="lp-card-head lp-task-head"><div><h2>待办任务</h2><p>来自笔记拆解、AI Agent 或手动创建；可按笔记本分类或优先级调整顺序。</p></div><label class="lp-sort"><span>排序</span><select v-model="taskSort" aria-label="任务排序"><option value="default">默认顺序</option><option value="notebook">按笔记本分类</option><option value="priority-desc">优先级：高到低</option><option value="priority-asc">优先级：低到高</option></select></label></div>
       <div class="lp-add"><input v-model="newTaskTitle" maxlength="255" placeholder="例如：整理数据库索引的三个使用场景" @keyup.enter="addTask" /><button :disabled="pendingActions.has('new-task') || !newTaskTitle.trim()" @click="addTask"><Plus :size="16" />添加任务</button></div>
       <div v-if="pendingTasks.length === 0" class="lp-empty">还没有待处理任务，去笔记页面生成一份学习安排吧。</div>
-      <div v-for="task in pendingTasks" :key="task.id" class="lp-row">
+      <div v-for="task in sortedPendingTasks" :key="task.id" class="lp-row">
         <button class="lp-check" title="完成任务" aria-label="完成任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="toggleTask(task)"><Circle :size="20" /></button>
-        <div class="lp-row-main"><strong>{{ task.title }}</strong><span v-if="task.description">{{ task.description }}</span><small v-if="task.dueTime">截止 {{ new Date(task.dueTime).toLocaleString() }}</small><small class="lp-origin"><span>{{ sourceLabel(task) }}</span><button v-if="task.noteId" @click="openSourceNote(task.noteId)">来源笔记：{{ sourceNoteTitle(task) }}</button></small></div>
+        <div class="lp-row-main"><strong>{{ task.title }}</strong><span v-if="task.description">{{ task.description }}</span><small v-if="task.dueTime">截止 {{ new Date(task.dueTime).toLocaleString() }}</small><small class="lp-origin"><span>{{ sourceLabel(task) }}</span><span>笔记本：{{ taskNotebookLabel(task) }}</span><button v-if="task.noteId" @click="openSourceNote(task.noteId)">来源笔记：{{ sourceNoteTitle(task) }}</button></small></div>
         <em :class="`priority-${task.priority}`">{{ task.priority === 3 ? '高' : task.priority === 1 ? '低' : '中' }}</em>
         <button class="lp-delete" title="删除任务" aria-label="删除任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="removeTask(task)"><Trash2 :size="15" /></button>
       </div>
       <div v-if="completedTasks.length" class="lp-completed-title">已完成 {{ completedTasks.length }}</div>
-      <div v-for="task in completedTasks" :key="`done-${task.id}`" class="lp-row is-done"><button class="lp-check" title="恢复任务" aria-label="恢复任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="toggleTask(task)"><CheckCircle2 :size="20" /></button><div class="lp-row-main"><strong>{{ task.title }}</strong><small class="lp-origin"><span>{{ sourceLabel(task) }}</span><button v-if="task.noteId" @click="openSourceNote(task.noteId)">来源笔记：{{ sourceNoteTitle(task) }}</button></small></div><button class="lp-delete" title="删除任务" aria-label="删除任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="removeTask(task)"><Trash2 :size="15" /></button></div>
+      <div v-for="task in sortedCompletedTasks" :key="`done-${task.id}`" class="lp-row is-done"><button class="lp-check" title="恢复任务" aria-label="恢复任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="toggleTask(task)"><CheckCircle2 :size="20" /></button><div class="lp-row-main"><strong>{{ task.title }}</strong><small class="lp-origin"><span>{{ sourceLabel(task) }}</span><span>笔记本：{{ taskNotebookLabel(task) }}</span><button v-if="task.noteId" @click="openSourceNote(task.noteId)">来源笔记：{{ sourceNoteTitle(task) }}</button></small></div><button class="lp-delete" title="删除任务" aria-label="删除任务" :disabled="pendingActions.has(`task-${task.id}`)" @click="removeTask(task)"><Trash2 :size="15" /></button></div>
     </section>
 
     <section v-else class="lp-card">
@@ -318,5 +335,6 @@ onMounted(load)
 .lp-plan-item{border-top:1px solid #f0e8df}.lp-plan-item .lp-plan{align-items:flex-start;border:0}.lp-plan-title{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;padding:0;border:0;background:none;color:#4b382b;font-size:14px;font-weight:650;text-align:left;cursor:pointer}.lp-plan-title svg{flex:none;color:#9c8068;transition:transform .16s}.lp-plan-title svg.rotated{transform:rotate(180deg)}
 .lp-origin{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.lp-origin button{padding:0;border:0;background:none;color:#a55a2b;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer}.lp-date-preview{display:flex;align-items:flex-start;gap:6px;margin-top:5px;color:#607c62;font-size:12px;line-height:1.5}.lp-date-preview svg{flex:none;margin-top:1px}
 .lp-plan-actions{display:flex;align-items:center;gap:8px;flex:none}.lp-icon-action{width:32px;height:32px;display:grid;place-items:center;border:1px solid #e6dacc;border-radius:7px;background:#fff;color:#85674d;cursor:pointer}.lp-plan-details{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:14px 16px 18px 52px;background:#faf6f0;border-radius:0 0 8px 8px;color:#725d49;font-size:12px;line-height:1.6}.lp-plan-details strong{display:block;margin-bottom:6px;color:#574331}.lp-plan-details p{margin:0 0 8px}.lp-date-list{display:flex;flex-wrap:wrap;gap:6px}.lp-date-list time{padding:4px 8px;border-radius:5px;background:#eaf0e7;color:#527357;font-variant-numeric:tabular-nums}.lp-source-link{padding:0;border:0;background:none;color:#a55a2b}
-@media(max-width:640px){.lp-page{padding:24px 16px}.lp-header{gap:12px;margin-bottom:22px}.lp-header h1{font-size:27px}.lp-subtitle{font-size:12px;line-height:1.6}.lp-refresh{flex-shrink:0}.lp-card{padding:16px}.lp-add{flex-direction:column}.lp-add input{min-width:0}.lp-add button{justify-content:center;padding:10px 14px}.lp-plan{flex-wrap:wrap}.lp-plan .lp-row-main{flex-basis:calc(100% - 60px)}.lp-tabs button{padding:10px}.lp-row-main small{overflow-wrap:anywhere}.lp-plan-editor{padding:14px}.lp-form-grid,.lp-schedule-fields{grid-template-columns:minmax(0,1fr)}.lp-field-wide,.lp-frequency-field{grid-column:auto}.lp-editor-actions{align-items:flex-start;flex-direction:column}.lp-editor-actions>div{width:100%;justify-content:flex-end}.lp-plan-actions{margin-left:48px}.lp-plan-details{grid-template-columns:1fr;padding:14px}.lp-frequency{width:100%}.lp-frequency button{flex:1;padding-inline:6px}}
+.lp-task-head{align-items:center;gap:16px}.lp-sort{display:flex;align-items:center;gap:8px;flex:none;color:#846f5e;font-size:12px}.lp-sort select{min-width:168px;border:1px solid #dfd1c2;border-radius:7px;background:#fffdf9;padding:8px 10px;color:#574331;font:inherit;outline:none}.lp-sort select:focus{border-color:#bd7847;box-shadow:0 0 0 2px #bd784722}
+@media(max-width:640px){.lp-page{padding:24px 16px}.lp-header{gap:12px;margin-bottom:22px}.lp-header h1{font-size:27px}.lp-subtitle{font-size:12px;line-height:1.6}.lp-refresh{flex-shrink:0}.lp-card{padding:16px}.lp-add{flex-direction:column}.lp-add input{min-width:0}.lp-add button{justify-content:center;padding:10px 14px}.lp-plan{flex-wrap:wrap}.lp-plan .lp-row-main{flex-basis:calc(100% - 60px)}.lp-tabs button{padding:10px}.lp-row-main small{overflow-wrap:anywhere}.lp-plan-editor{padding:14px}.lp-form-grid,.lp-schedule-fields{grid-template-columns:minmax(0,1fr)}.lp-field-wide,.lp-frequency-field{grid-column:auto}.lp-editor-actions{align-items:flex-start;flex-direction:column}.lp-editor-actions>div{width:100%;justify-content:flex-end}.lp-plan-actions{margin-left:48px}.lp-plan-details{grid-template-columns:1fr;padding:14px}.lp-frequency{width:100%}.lp-frequency button{flex:1;padding-inline:6px}.lp-task-head{align-items:flex-start;flex-direction:column}.lp-sort{width:100%;justify-content:space-between}.lp-sort select{flex:1;min-width:0}}
 </style>

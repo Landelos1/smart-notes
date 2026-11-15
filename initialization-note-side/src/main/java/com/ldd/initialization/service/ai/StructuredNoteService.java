@@ -31,11 +31,11 @@ public class StructuredNoteService {
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
 
-    @Value("${ai.vision.base-url:${langchain4j.open-ai.chat-model.base-url:}}")
+    @Value("${ai.vision.base-url:${langchain4j.open-ai.embedding-model.base-url:${langchain4j.open-ai.chat-model.base-url:}}}")
     private String visionBaseUrl;
-    @Value("${ai.vision.api-key:${langchain4j.open-ai.chat-model.api-key:}}")
+    @Value("${ai.vision.api-key:${langchain4j.open-ai.embedding-model.api-key:${langchain4j.open-ai.chat-model.api-key:}}}")
     private String visionApiKey;
-    @Value("${ai.vision.model:qwen-vl-plus}")
+    @Value("${ai.vision.model:qwen3-vl-plus}")
     private String visionModel;
 
     public StructuredNoteService(ConsultantService consultantService, ObjectMapper objectMapper) {
