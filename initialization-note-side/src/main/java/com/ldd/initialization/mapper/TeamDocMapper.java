@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Result;
+import org.apache.ibatis.annotations.Results;
 
 /**
  * 团队文档Mapper接口
@@ -28,6 +30,12 @@ public interface TeamDocMapper extends BaseMapper<TeamDoc> {
             "</if>" +
             "ORDER BY d.is_pinned DESC, d.update_time DESC" +
             "</script>")
+    @Results({
+            @Result(property = "updatedBy", column = "updated_by"),
+            @Result(property = "updatedByUser.id", column = "updated_by"),
+            @Result(property = "updatedByUser.username", column = "updated_by_name"),
+            @Result(property = "updatedByUser.avatarUrl", column = "updated_by_avatar")
+    })
     IPage<TeamDoc> selectDocListByPage(Page<TeamDoc> page, 
                                         @Param("teamId") Long teamId,
                                         @Param("keyword") String keyword);
@@ -44,6 +52,20 @@ public interface TeamDocMapper extends BaseMapper<TeamDoc> {
             "LEFT JOIN \"t_user\" u2 ON d.updated_by = u2.id " +
             "LEFT JOIN \"t_user\" u3 ON d.locked_by = u3.id " +
             "WHERE d.id = #{docId} AND d.status = 1")
+    @Results({
+            @Result(property = "createdBy", column = "created_by"),
+            @Result(property = "updatedBy", column = "updated_by"),
+            @Result(property = "lockedBy", column = "locked_by"),
+            @Result(property = "createdByUser.id", column = "created_by"),
+            @Result(property = "createdByUser.username", column = "created_by_name"),
+            @Result(property = "createdByUser.avatarUrl", column = "created_by_avatar"),
+            @Result(property = "updatedByUser.id", column = "updated_by"),
+            @Result(property = "updatedByUser.username", column = "updated_by_name"),
+            @Result(property = "updatedByUser.avatarUrl", column = "updated_by_avatar"),
+            @Result(property = "lockedByUser.id", column = "locked_by"),
+            @Result(property = "lockedByUser.username", column = "locked_by_name"),
+            @Result(property = "lockedByUser.avatarUrl", column = "locked_by_avatar")
+    })
     TeamDoc selectDocWithUserInfo(@Param("docId") Long docId);
 
     /**

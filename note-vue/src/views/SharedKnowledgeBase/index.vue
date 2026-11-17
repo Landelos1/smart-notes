@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Button from '@/components/ui/Button.vue'
+import ResourceCover from '@/components/common/ResourceCover.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import Badge from '@/components/ui/Badge.vue'
 import Select from '@/components/ui/Select.vue'
@@ -1195,11 +1196,7 @@ watch(activeTab, async (newTab) => {
             @click="handleKnowledgeBaseClick(kb)"
           >
             <div class="relative w-full h-48">
-              <div
-                class="w-full h-full"
-                :class="kb.coverUrl ? 'bg-gray-100 bg-cover bg-center' : 'bg-gradient-to-br from-blue-500 to-purple-600'"
-                :style="kb.coverUrl ? { backgroundImage: `url(${kb.coverUrl})` } : undefined"
-              />
+              <ResourceCover :src="kb.coverUrl" :title="kb.name" kind="knowledge" class="w-full h-full" />
               <div class="absolute top-2 right-2 flex gap-1">
                 <span class="px-2 py-1 bg-white/90 rounded text-xs flex items-center gap-1">
                   <Lock v-if="kb.hasPassword" class="w-3 h-3" />
@@ -1270,12 +1267,7 @@ watch(activeTab, async (newTab) => {
             :key="kb.id"
             class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-[360px]"
           >
-            <div
-              class="relative w-full h-48 cursor-pointer"
-              :class="kb.coverUrl ? 'bg-gray-100 bg-cover bg-center' : 'bg-gradient-to-br from-green-500 to-green-600'"
-              :style="kb.coverUrl ? { backgroundImage: `url(${kb.coverUrl})` } : undefined"
-              @click="viewKnowledgeBase(kb)"
-            />
+            <ResourceCover :src="kb.coverUrl" :title="kb.name" kind="knowledge" class="relative h-48 w-full cursor-pointer" @click="viewKnowledgeBase(kb)" />
             <div class="p-4 flex-1 flex flex-col cursor-pointer" @click="viewKnowledgeBase(kb)">
               <h3 class="mb-2 line-clamp-1 text-gray-900">{{ kb.name }}</h3>
               <p class="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">{{ kb.description }}</p>
@@ -1387,12 +1379,7 @@ watch(activeTab, async (newTab) => {
             :key="kb.id"
             class="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow flex flex-col h-[360px]"
           >
-            <div
-              class="relative w-full h-48 cursor-pointer"
-              :class="kb.coverUrl ? 'bg-gray-100 bg-cover bg-center' : 'bg-gradient-to-br from-purple-500 to-pink-600'"
-              :style="kb.coverUrl ? { backgroundImage: `url(${kb.coverUrl})` } : undefined"
-              @click="viewKnowledgeBase(kb)"
-            />
+            <ResourceCover :src="kb.coverUrl" :title="kb.name" kind="knowledge" class="relative h-48 w-full cursor-pointer" @click="viewKnowledgeBase(kb)" />
             <div class="p-4 flex-1 flex flex-col cursor-pointer" @click="viewKnowledgeBase(kb)">
               <h3 class="mb-2 line-clamp-1 text-gray-900">{{ kb.name }}</h3>
               <p class="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">{{ kb.description }}</p>
@@ -1427,17 +1414,7 @@ watch(activeTab, async (newTab) => {
         <div class="bg-white rounded-lg border border-gray-200 p-6">
           <Button variant="ghost" size="sm" @click="goBackToList" class="mb-4"><ArrowLeft class="w-4 h-4 mr-2" />返回</Button>
           <div class="flex gap-6">
-            <div
-              class="w-48 h-32 rounded-lg flex-shrink-0 overflow-hidden"
-              :class="currentKnowledgeBase.coverUrl ? 'bg-gray-100' : 'bg-gradient-to-br from-blue-500 to-purple-600'"
-            >
-              <img
-                v-if="currentKnowledgeBase.coverUrl"
-                :src="currentKnowledgeBase.coverUrl"
-                :alt="currentKnowledgeBase.name"
-                class="w-full h-full object-cover"
-              />
-            </div>
+            <ResourceCover :src="currentKnowledgeBase.coverUrl" :title="currentKnowledgeBase.name" kind="knowledge" class="w-48 h-32 rounded-lg flex-shrink-0" />
             <div class="flex-1 space-y-3">
               <h1 class="text-2xl text-gray-900">{{ currentKnowledgeBase.name }}</h1>
               <p class="text-gray-600">{{ currentKnowledgeBase.description }}</p>
@@ -1522,7 +1499,7 @@ watch(activeTab, async (newTab) => {
             <label class="block text-sm text-gray-700 mb-2">封面图片</label>
             <div class="flex items-center gap-4">
               <div class="w-24 h-16 rounded-lg border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center">
-                <img v-if="formData.coverUrl" :src="formData.coverUrl" alt="封面" class="w-full h-full object-cover" />
+                <ResourceCover v-if="formData.coverUrl" :src="formData.coverUrl" :title="formData.name" kind="knowledge" class="w-full h-full" />
                 <span v-else class="text-xs text-gray-400">暂无封面</span>
               </div>
               <div class="flex items-center gap-2">

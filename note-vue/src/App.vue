@@ -828,7 +828,6 @@ ${template.description}
     <NoteSquareLikesPage v-else-if="currentPage === 'note-likes'" class="flex-1 min-w-0" />
     <NoteSquareMyNotesPage v-else-if="currentPage === 'note-my-notes'" class="flex-1 min-w-0" />
     <TeamPage v-else-if="currentPage === 'team'" class="flex-1 min-w-0" />
-    <AIChatPage v-else-if="currentPage === 'ai-chat'" class="flex-1 min-w-0" />
     <SettingsPage v-else-if="currentPage === 'settings'" class="flex-1 min-w-0" />
     <SharedKnowledgeBasePage v-else-if="currentPage === 'shared-knowledge-base'" class="flex-1 min-w-0" />
     <PersonalKnowledgeBasePage v-else-if="currentPage === 'personal-knowledge-base'" class="flex-1 min-w-0" />
@@ -841,10 +840,14 @@ ${template.description}
     <MemberSystemPage v-else-if="currentPage === 'member-system'" class="flex-1 min-w-0" />
     <LearningPlansPage v-else-if="currentPage === 'learning-plans'" class="flex-1 min-w-0" />
     <TemplateCenterPage 
-      v-else 
+      v-else-if="currentPage === 'template-center'"
       class="flex-1 min-w-0"
       @use-template="handleUseTemplate" 
     />
+
+    <KeepAlive>
+      <AIChatPage v-if="currentPage === 'ai-chat'" class="flex-1 min-w-0" />
+    </KeepAlive>
 
     <Button
       v-if="currentPage !== 'notes' && !isSidebarOpen"

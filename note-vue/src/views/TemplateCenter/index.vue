@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Search, Grid3x3, List, Star, Download, Eye, Clock, TrendingUp, Plus, X } from 'lucide-vue-next'
 import Button from '@/components/ui/Button.vue'
+import ResourceCover from '@/components/common/ResourceCover.vue'
 import TemplateDetailPage from './TemplateDetail.vue'
 import { getTemplates, getTemplateById, useTemplate, createTemplate, getFavoriteTemplates } from '@/api/template'
 import { uploadFile } from '@/api/apiClient'
@@ -281,7 +282,7 @@ async function submitTemplate() {
       title: newTemplate.value.title,
       description: newTemplate.value.description,
       category: newTemplate.value.category,
-      thumbnail: newTemplate.value.thumbnail || '/placeholder-template.png',
+      thumbnail: newTemplate.value.thumbnail || '',
       content: newTemplate.value.content,
       tags: newTemplate.value.tags,
       isPublic: newTemplate.value.isPublic
@@ -432,12 +433,8 @@ onUnmounted(() => {
                 ]"
               >
                 <!-- Thumbnail -->
-                <div :class="['relative', viewMode === 'list' ? 'w-48 flex-shrink-0' : 'w-full h-48']">
-                  <img
-                    :src="template.thumbnail"
-                    :alt="template.title"
-                    class="w-full h-full object-cover"
-                  />
+                <div :class="['relative', viewMode === 'list' ? 'w-48 h-32 flex-shrink-0' : 'w-full h-48']">
+                  <ResourceCover :src="template.thumbnail" :title="template.title" class="h-full w-full" />
                   <div class="absolute top-2 right-2 flex gap-1">
                     <span class="px-2 py-1 bg-white/90 rounded text-xs flex items-center gap-1">
                       <Star class="w-3 h-3 text-yellow-500 fill-yellow-500" />

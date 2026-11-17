@@ -4,6 +4,7 @@ import Button from '@/components/ui/Button.vue'
 import Avatar from '@/components/ui/Avatar.vue'
 import Input from '@/components/ui/Input.vue'
 import Badge from '@/components/ui/Badge.vue'
+import Select from '@/components/ui/Select.vue'
 
 import { useModal } from '@/composables/useModal'
 import { marked } from 'marked'
@@ -14,6 +15,7 @@ import {
   createNoteSquareComment,
   deleteNoteSquareComment,
   favoriteNoteSquare,
+  getNoteSquareCategories,
   getNoteSquare,
   getNoteSquareComments,
   getNoteSquareDetail,
@@ -63,6 +65,7 @@ interface Comment {
 interface PublicNote {
   id: string
   title: string
+  category?: string
   content: string
   images: string[]
   user: User
@@ -97,6 +100,9 @@ const notes = ref<PublicNote[]>([])
 const selectedNote = ref<PublicNote | null>(null)
 const searchQuery = ref('')
 const activeTab = ref<NoteSquareTab>(props.initialTab)
+const selectedCategory = ref('')
+const categories = ref<string[]>([])
+const isLoadingCategories = ref(true)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
@@ -111,6 +117,10 @@ const totalPages = computed(() => {
   if (!total.value) return 0
   return Math.ceil(total.value / pageSize.value)
 })
+const categoryOptions = computed(() => [
+  { value: '', label: isLoadingCategories.value ? '正在提炼...' : '全部分类' },
+  ...categories.value.map(category => ({ value: category, label: category }))
+])
 
 const commentTotal = computed(() => countComments(comments.value))
 
@@ -166,6 +176,14 @@ watch(currentPage, () => {
   fetchNotes()
 })
 
+watch(selectedCategory, () => {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1
+    return
+  }
+  fetchNotes()
+})
+
 watch(searchQuery, () => {
   if (searchTimer) clearTimeout(searchTimer)
   if (!searchQuery.value.trim()) {
@@ -182,7 +200,22 @@ watch(searchQuery, () => {
 
 onMounted(() => {
   fetchNotes()
+  void fetchCategories().then(() => {
+    if (categories.value.length > 0) void fetchNotes()
+  })
 })
+
+async function fetchCategories() {
+  try {
+    const res = await getNoteSquareCategories()
+    categories.value = res?.code === 0 && Array.isArray(res.data) ? res.data : []
+  } catch (error) {
+    console.error('[NoteSquare] 加载分类失败:', error)
+    categories.value = []
+  } finally {
+    isLoadingCategories.value = false
+  }
+}
 
 function formatTime(value?: string) {
   if (!value) return ''
@@ -221,6 +254,7 @@ function mapSquareNote(raw: any, fullContent = false): PublicNote {
   return {
     id: String(raw.id ?? ''),
     title: raw.title || '',
+    category: raw.category || '',
     content,
     images: firstImage ? [firstImage] : [],
     user: {
@@ -308,6 +342,7 @@ async function fetchNotes() {
         page: currentPage.value,
         size: pageSize.value,
         keyword,
+        category: selectedCategory.value,
         sortBy: activeTab.value === 'latest' ? 'latest' : 'recommend',
         sortOrder: 'desc'
       })
@@ -341,7 +376,7 @@ function resetAISummary() {
 }
 
 function getSummaryKey(keyword: string) {
-  return `${activeTab.value}:${keyword}`
+  return `${activeTab.value}:${selectedCategory.value}:${keyword}`
 }
 
 function sanitizeSummaryChunk(chunk: string) {
@@ -380,7 +415,8 @@ async function maybeFetchAISummary() {
       {
         keyword,
         maxNotes: 10,
-        sortBy: activeTab.value
+        sortBy: activeTab.value,
+        category: selectedCategory.value || undefined
       },
       (chunk: string) => {
         aiSummaryContent.value += sanitizeSummaryChunk(chunk)
@@ -617,7 +653,7 @@ async function handleSelectNote(note: PublicNote, openAi = false) {
   try {
     const res = await getNoteSquareDetail(note.id)
     if (res && res.code === 0 && res.data) {
-      selectedNote.value = mapSquareNote(res.data, true)
+      selectedNote.value = { ...mapSquareNote(res.data, true), category: note.category }
     }
   } catch (error) {
     console.error('[NoteSquare] 获取笔记详情失败:', error)
@@ -638,7 +674,7 @@ async function handleQuickAI(note: PublicNote) {
   try {
     const res = await getNoteSquareDetail(note.id)
     if (res && res.code === 0 && res.data) {
-      quickAINote.value = mapSquareNote(res.data, true)
+      quickAINote.value = { ...mapSquareNote(res.data, true), category: note.category }
     }
   } catch (error) {
     console.error('[NoteSquare] 获取笔记详情失败:', error)
@@ -1277,7 +1313,7 @@ watch([aiMessages, showAIChat], async () => {
 
       <div
         v-if="['recommend', 'latest'].includes(activeTab)"
-        class="max-w-6xl mx-auto px-6 pb-2.5 flex gap-1"
+        class="max-w-6xl mx-auto px-6 pb-2.5 flex items-center gap-1"
       >
         <button
           :class="['px-3.5 py-1.5 rounded-lg text-[13px] transition-colors', activeTab === 'recommend' ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-50']"
@@ -1291,6 +1327,13 @@ watch([aiMessages, showAIChat], async () => {
         >
           最新
         </button>
+        <span class="ml-4 text-xs text-gray-500">分类</span>
+        <Select
+          v-model="selectedCategory"
+          :options="categoryOptions"
+          :disabled="isLoadingCategories"
+          class="w-36"
+        />
       </div>
 
       <div v-else class="max-w-6xl mx-auto px-6 pb-2.5 text-[12.5px] text-gray-500">
@@ -1353,6 +1396,9 @@ watch([aiMessages, showAIChat], async () => {
                   </div>
                 </Avatar>
                 <span class="text-[12.5px] font-medium text-gray-600">{{ note.user.name }}</span>
+                <Badge v-if="note.category" variant="secondary" class="text-gray-600 bg-gray-100">
+                  {{ note.category }}
+                </Badge>
               </div>
 
               <h3 class="text-[15.5px] font-semibold text-gray-900 mb-1.5 group-hover:text-blue-600 transition-colors line-clamp-1">{{ note.title }}</h3>

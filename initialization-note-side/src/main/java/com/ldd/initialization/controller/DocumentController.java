@@ -83,6 +83,20 @@ public class DocumentController {
         }
     }
     
+    /** 解析对话附件，不入库；图片经视觉模型转写，PDF 提取文本。 */
+    @SaCheckLogin
+    @PostMapping("/chat-context")
+    public Result<String> chatContext(@RequestParam("file") MultipartFile file) {
+        try {
+            return Result.success(structuredNoteService.extractChatContext(file));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return Result.error(e.getMessage());
+        } catch (Exception e) {
+            log.warn("对话附件解析失败，文件类型: {}", file.getContentType());
+            return Result.error("附件读取失败，请检查文件是否完整，或转为图片/TXT 后重试");
+        }
+    }
+
     /**
      * 上传单个文档（自动获取当前用户）
      */

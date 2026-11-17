@@ -439,6 +439,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Override
     public LockInfoVO acquireLock(Long teamId, Long docId, Long userId) {
         checkPermission(teamId, userId, 2);
+        requireActiveDoc(teamId, docId);
         
         String token = UUID.randomUUID().toString();
         int rows = docMapper.acquireLock(docId, userId, token);
@@ -466,6 +467,8 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
 
     @Override
     public void releaseLock(Long teamId, Long docId, String lockToken, Long userId) {
+        checkPermission(teamId, userId, 2);
+        requireActiveDoc(teamId, docId);
         docMapper.releaseLock(docId, userId, lockToken);
 
         saveActivityEvent(teamId, docId, userId, "lock_released", "结束编辑");
@@ -474,6 +477,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Override
     public List<DocVersionVO> getVersionHistory(Long teamId, Long docId, Long userId) {
         checkPermission(teamId, userId, 3);
+        requireActiveDoc(teamId, docId);
         
         List<TeamDocEvent> events = eventMapper.selectVersionHistory(docId);
         return events.stream().map(this::convertToDocVersionVO).collect(Collectors.toList());
@@ -483,13 +487,16 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Transactional
     public DocDetailVO restoreVersion(Long teamId, Long docId, Long eventId, Long userId) {
         checkPermission(teamId, userId, 2);
+        TeamDoc doc = requireActiveDoc(teamId, docId);
+        if (doc.getLockedBy() != null && !doc.getLockedBy().equals(userId)
+                && doc.getLockExpireTime() != null && doc.getLockExpireTime().isAfter(LocalDateTime.now())) {
+            throw new BizException(BizResponseCode.ERROR_1, "文档正在被其他人编辑");
+        }
         
         TeamDocEvent event = eventMapper.selectById(eventId);
         if (event == null || !event.getDocId().equals(docId) || event.getEventType() != 1) {
             throw new BizException(BizResponseCode.ERROR_1, "版本不存在");
         }
-        
-        TeamDoc doc = docMapper.selectById(docId);
         
         // 保存当前版本
         saveVersionSnapshot(doc, userId, "恢复前备份");
@@ -512,6 +519,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Override
     public List<DocActivityVO> getActivities(Long teamId, Long docId, Long userId) {
         checkPermission(teamId, userId, 3);
+        requireActiveDoc(teamId, docId);
 
         List<TeamDocEvent> events = eventMapper.selectActivities(docId);
         return events.stream().map(this::convertToDocActivityVO).collect(Collectors.toList());
@@ -522,6 +530,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Override
     public List<DocCommentVO> getComments(Long teamId, Long docId, Integer type, Long userId) {
         checkPermission(teamId, userId, 3);
+        requireActiveDoc(teamId, docId);
         
         List<TeamDocEvent> events = eventMapper.selectComments(docId);
         return events.stream()
@@ -534,6 +543,14 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Transactional
     public DocCommentVO addComment(Long teamId, Long docId, CommentCreateDTO dto, Long userId) {
         checkPermission(teamId, userId, 3);
+        requireActiveDoc(teamId, docId);
+        if (dto.getParentId() != null) {
+            TeamDocEvent parent = eventMapper.selectById(dto.getParentId());
+            if (parent == null || !teamId.equals(parent.getTeamId()) || !docId.equals(parent.getDocId())
+                    || !Integer.valueOf(2).equals(parent.getEventType())) {
+                throw new BizException(BizResponseCode.ERROR_1, "回复的评论不存在于当前文档");
+            }
+        }
         
         TeamDocEvent event = new TeamDocEvent();
         event.setTeamId(teamId);
@@ -563,6 +580,7 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Transactional
     public void resolveComment(Long teamId, Long docId, Long commentId, Long userId) {
         checkPermission(teamId, userId, 2);
+        requireActiveDoc(teamId, docId);
         
         TeamDocEvent event = eventMapper.selectById(commentId);
         if (event == null || !event.getDocId().equals(docId) || event.getEventType() != 2) {
@@ -601,16 +619,6 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
         session.setStatus(1);
         sessionMapper.insert(session);
         
-        // 添加系统欢迎消息
-        if (false) {
-            TeamAIMessage welcomeMsg = new TeamAIMessage();
-            welcomeMsg.setSessionId(session.getId());
-            welcomeMsg.setUserId(userId);
-            welcomeMsg.setRole(2); // assistant
-            welcomeMsg.setContent("你好！我是团队知识库助手，可以帮你查询团队文档中的内容。请问有什么需要帮助的？");
-            messageMapper.insert(welcomeMsg);
-        }
-
         return convertToAISessionVO(session);
     }
 
@@ -649,6 +657,10 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
     @Override
     public List<AIMessageVO> getAIMessages(Long teamId, Long sessionId, Long userId) {
         checkPermission(teamId, userId, 3);
+        TeamAISession session = sessionMapper.selectById(sessionId);
+        if (session == null || !teamId.equals(session.getTeamId()) || !Integer.valueOf(1).equals(session.getStatus())) {
+            throw new BizException(BizResponseCode.ERROR_1, "会话不存在");
+        }
         
         List<TeamAIMessage> messages = messageMapper.selectMessagesBySessionId(sessionId);
         return messages.stream().map(this::convertToAIMessageVO).collect(Collectors.toList());
@@ -908,6 +920,14 @@ public class TeamServiceImpl extends ServiceImpl<TeamSpaceMapper, TeamSpace> imp
             vo.setEmail(member.getUser().getPhone());
         }
         return vo;
+    }
+
+    private TeamDoc requireActiveDoc(Long teamId, Long docId) {
+        TeamDoc doc = docMapper.selectById(docId);
+        if (doc == null || !teamId.equals(doc.getTeamId()) || !Integer.valueOf(1).equals(doc.getStatus())) {
+            throw new BizException(BizResponseCode.ERROR_1, "文档不存在");
+        }
+        return doc;
     }
 
     private DocBriefVO convertToDocBriefVO(TeamDoc doc) {

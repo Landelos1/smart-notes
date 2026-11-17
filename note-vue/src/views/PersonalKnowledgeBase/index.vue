@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, inject, nextTick } from 'vue'
 import Button from '@/components/ui/Button.vue'
+import { useRouter } from 'vue-router'
 import {
   Search, Upload, Filter, Grid, List, Plus, FileText, RefreshCw,
   Trash2, Download, Eye, X, Check, AlertCircle, Loader2, Edit2
@@ -21,6 +22,8 @@ import { getNotebooks, createNote } from '@/api/notes'
 import { useModal } from '@/composables/useModal'
 
 const modal = useModal()
+const router = useRouter()
+const refreshNotesAndNotebooks = inject<() => Promise<void>>('refreshNotesAndNotebooks')
 
 // 注入回收站刷新方法
 const notifyRecycleBinRefresh = inject<() => void>('notifyRecycleBinRefresh')
@@ -200,6 +203,7 @@ async function handleStructureFileSelect(e: Event) {
 }
 
 async function saveStructuredNote() {
+  if (savingStructuredNote.value) return
   if (!structuredNote.value || !selectedStructuredNotebookId.value) {
     await modal.warning('请先选择要保存到的笔记本')
     return
@@ -213,11 +217,14 @@ async function saveStructuredNote() {
       tags: structuredNote.value.tags || [],
       status: 1
     })
-    if (result.code !== 0) throw new Error(result.message || '笔记保存失败')
+    const savedNote = result.data as { id?: number | string } | null
+    if (result.code !== 0 || !savedNote?.id) throw new Error(result.message || '笔记保存失败')
+    const noteId = savedNote.id
     showStructuredNote.value = false
     structuredNote.value = null
     await nextTick()
-    await modal.success('结构化笔记已保存')
+    await refreshNotesAndNotebooks?.()
+    await router.push({ name: 'Notes', query: { noteId: String(noteId) } })
   } catch (error) {
     await modal.error(error instanceof Error ? error.message : '笔记保存失败')
   } finally {
@@ -677,6 +684,7 @@ function getFileTypeColor(fileType: string) {
           <button class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700" @click="showStructuredNote = false"><X class="h-5 w-5" /></button>
         </div>
         <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          <p v-if="structuredNote.warning" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{{ structuredNote.warning }}</p>
           <div>
             <label class="mb-1.5 block text-xs font-medium text-gray-500">笔记标题</label>
             <input v-model="structuredNote.title" class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" />
@@ -715,6 +723,7 @@ function getFileTypeColor(fileType: string) {
               aria-label="Markdown 正文（可编辑）"
             />
           </div>
+          <p class="text-xs text-gray-500">保存后会打开新笔记，也可从左侧所选笔记本或“全部笔记”中查找。</p>
           <div class="flex flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center">
             <label class="shrink-0 text-sm text-gray-600">保存到笔记本</label>
             <select v-model="selectedStructuredNotebookId" class="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-400 focus:outline-none">
@@ -727,7 +736,7 @@ function getFileTypeColor(fileType: string) {
           <Button variant="outline" @click="showStructuredNote = false">稍后保存</Button>
           <Button :disabled="savingStructuredNote || !selectedStructuredNotebookId" @click="saveStructuredNote">
             <Loader2 v-if="savingStructuredNote" class="h-4 w-4 animate-spin" />
-            <Save v-else class="h-4 w-4" />保存为笔记
+            <Save v-else class="h-4 w-4" />保存并打开笔记
           </Button>
         </div>
       </div>

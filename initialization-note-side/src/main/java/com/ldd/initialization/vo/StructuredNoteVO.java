@@ -19,4 +19,5 @@ public class StructuredNoteVO {
     private String markdown;
     private Integer pageCount;
     private String extractionMode;
+    private String warning;
 }

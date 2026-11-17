@@ -4,6 +4,7 @@
  * @property {string} id - 消息ID
  * @property {'user'|'assistant'} role - 角色
  * @property {string} content - 内容
+ * @property {{name: string, previewUrl?: string}[]} [attachments] - 当前消息携带的附件
  * @property {{fileId?: number, title?: string, quote?: string, page?: number, chunkIndex?: number, score?: number, sourceType?: string}[]} [citations] - 参考来源文件
  * @property {Date} timestamp - 时间戳
  */

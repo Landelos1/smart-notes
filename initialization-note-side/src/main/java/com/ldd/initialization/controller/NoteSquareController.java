@@ -78,6 +78,7 @@ import java.util.List;
     @GetMapping
     public Result<PageResult<NoteSquareVO>> getSquareNotes(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String category,
             @RequestParam(required = false, defaultValue = "recommend") String sortBy,
             @RequestParam(required = false, defaultValue = "desc") String sortOrder,
             @RequestParam(required = false, defaultValue = "1") Integer page,
@@ -85,11 +86,17 @@ import java.util.List;
         Long userId = StpUtil.getLoginIdAsLong();
         NoteSquareSearchDTO searchDTO = new NoteSquareSearchDTO();
         searchDTO.setKeyword(keyword);
+        searchDTO.setCategory(category);
         searchDTO.setSortBy(sortBy);
         searchDTO.setSortOrder(sortOrder);
         searchDTO.setPage(page);
         searchDTO.setSize(size);
         return Result.success(noteSquareService.getSquareNotes(searchDTO, userId));
+    }
+
+    @GetMapping("/categories")
+    public Result<List<String>> getPublishedCategories() {
+        return Result.success(noteSquareService.getPublishedCategories());
     }
 
     /**
@@ -272,6 +279,7 @@ import java.util.List;
 
         NoteSquareSearchDTO searchDTO = new NoteSquareSearchDTO();
         searchDTO.setKeyword(keyword);
+        searchDTO.setCategory(request.getCategory());
         searchDTO.setSortBy(request.getSortBy());
         searchDTO.setSortOrder(request.getSortOrder());
         searchDTO.setPage(1);

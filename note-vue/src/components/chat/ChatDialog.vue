@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
 import Button from '@/components/ui/Button.vue'
 import { Send, Bot, User, Sparkles, Paperclip, Square, Upload as UploadIcon, BookmarkPlus, X, Check, FileText, ExternalLink } from 'lucide-vue-next'
 import { formatRelativeTime } from '@/utils/timeFormat'
 import type { Message } from '@/types/chat'
 import { marked } from 'marked'
-import { uploadDocument } from '@/api/personalKnowledge'
+import { extractChatAttachment } from '@/api/personalKnowledge'
 import { getNotebooks, createNote } from '@/api/notes'
 import FilePreviewModal from '@/components/common/FilePreviewModal.vue'
+import { useModal } from '@/composables/useModal'
 
 interface Props {
   messages: Message[]
@@ -24,6 +25,7 @@ const props = withDefaults(defineProps<Props>(), {
   useKnowledgeBase: false
 })
 
+const modal = useModal()
 const emit = defineEmits<{
   'send-message': [content: string]
   'stop': []
@@ -68,6 +70,7 @@ const messagesEndRef = ref<HTMLDivElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const selectedFiles = ref<File[]>([])
+const imagePreviews = new Map<File, string>()
 const isUploading = ref(false)
 const uploadProgress = ref(0)
 const sessionFileContents = ref<Map<string, string>>(new Map()) // 存储当前会话临时文件内容
@@ -106,7 +109,7 @@ watch(() => props.messages, async () => {
 }, { deep: true })
 
 function handleSend() {
-  if (input.value.trim() && !props.isLoading) {
+  if ((input.value.trim() || selectedFiles.value.length > 0) && !props.isLoading && !isUploading.value) {
     emit('send-message', input.value.trim())
     input.value = ''
     if (textareaRef.value) {
@@ -141,16 +144,46 @@ async function handleFileChange(e: Event) {
   const target = e.target as HTMLInputElement
   const files = target.files
   if (files && files.length > 0) {
-    selectedFiles.value = [...selectedFiles.value, ...Array.from(files)]
-    // 自动读取文件内容
-    await readSelectedFilesContent()
+    const accepted = Array.from(files)
+    const oversize = accepted.filter(file => file.size > 20 * 1024 * 1024)
+    const supported = accepted.filter(file => file.size <= 20 * 1024 * 1024)
+    selectedFiles.value = [...selectedFiles.value, ...supported]
+    supported.filter(file => file.type.startsWith('image/')).forEach(file => {
+      imagePreviews.set(file, URL.createObjectURL(file))
+    })
+    if (oversize.length) await modal.warning(`${oversize.map(file => file.name).join('、')} 超过20MB，未加入附件`)
+    // 文件在点击发送时解析，避免用户选图后立即调用视觉模型。
   }
   target.value = ''
 }
 
 function removeSelectedFile(index: number) {
-  selectedFiles.value.splice(index, 1)
+  const [file] = selectedFiles.value.splice(index, 1)
+  if (file && imagePreviews.has(file)) {
+    URL.revokeObjectURL(imagePreviews.get(file)!)
+    imagePreviews.delete(file)
+  }
 }
+
+function clearSelectedFiles() {
+  selectedFiles.value.forEach(file => {
+    const preview = imagePreviews.get(file)
+    if (preview) URL.revokeObjectURL(preview)
+    imagePreviews.delete(file)
+  })
+  selectedFiles.value = []
+  sessionFileContents.value.clear()
+}
+
+function imagePreview(file: File) {
+  return imagePreviews.get(file)
+}
+
+onBeforeUnmount(() => {
+  clearSelectedFiles()
+  imagePreviews.forEach(preview => URL.revokeObjectURL(preview))
+  imagePreviews.clear()
+})
 
 // 读取文件内容（仅支持文本文件）
 async function readFileContent(file: File): Promise<string> {
@@ -181,21 +214,22 @@ async function readSelectedFilesContent() {
     for (let i = 0; i < selectedFiles.value.length; i++) {
       const file = selectedFiles.value[i]
       try {
-        // 只读取文本文件
-        if (file.type.startsWith('text/') || 
-            file.name.endsWith('.txt') || 
-            file.name.endsWith('.md') ||
-            file.name.endsWith('.json') ||
-            file.name.endsWith('.xml') ||
-            file.name.endsWith('.csv')) {
+        const extension = file.name.split('.').pop()?.toLowerCase() || ''
+        if (file.type.startsWith('image/') || extension === 'pdf') {
+          const result = await extractChatAttachment(file)
+          if (result.code !== 0 || !result.data) throw new Error(result.message || '附件未提取到有效内容')
+          fileContents.set(file.name, result.data)
+        } else if (file.type.startsWith('text/') || ['txt', 'md', 'markdown', 'json', 'xml', 'csv', 'log', 'yaml', 'yml'].includes(extension)) {
           const content = await readFileContent(file)
+          if (!content.trim()) throw new Error('文件内容为空')
+          if (content.length > 40000) throw new Error('文件文字超过4万字，请拆分后重试')
           fileContents.set(file.name, content)
         } else {
-          failedFiles.push(file.name + '(仅支持文本文件)')
+          failedFiles.push(`${file.name}（暂不支持此格式）`)
         }
       } catch (error) {
         console.error(`读取文件 ${file.name} 失败:`, error)
-        failedFiles.push(file.name)
+        failedFiles.push(`${file.name}（${error instanceof Error ? error.message : '读取失败'}）`)
       }
       uploadProgress.value = Math.round(((i + 1) / selectedFiles.value.length) * 100)
     }
@@ -223,6 +257,8 @@ function setQuickInput(text: string) {
 // 暴露方法和属性供父组件使用
 defineExpose({
   readSelectedFilesContent,
+  clearSelectedFiles,
+  attachmentPreview: (file: File) => imagePreviews.get(file) || undefined,
   selectedFiles,
   sessionFileContents
 })
@@ -411,9 +447,15 @@ function renderMarkdown(content: string): string {
             ]">
               <!-- 用户消息：纯文本显示 -->
               <p v-if="message.role === 'user'" class="whitespace-pre-wrap break-words break-all">{{ message.content }}</p>
+              <div v-if="message.role === 'user' && message.attachments?.length" class="mt-2 flex flex-wrap gap-1.5">
+                <span v-for="attachment in message.attachments" :key="attachment.name" class="inline-flex max-w-full items-center gap-1 rounded border border-white/30 bg-white/15 px-2 py-1 text-xs">
+                  <img v-if="attachment.previewUrl" :src="attachment.previewUrl" :alt="attachment.name" class="h-8 w-8 shrink-0 rounded object-cover" />
+                  <FileText v-else class="h-3 w-3 shrink-0" /><span class="truncate">{{ attachment.name }}</span>
+                </span>
+              </div>
               <!-- AI消息：Markdown渲染 -->
               <div 
-                v-else 
+                v-if="message.role === 'assistant'"
                 class="markdown-content break-words break-all overflow-wrap-anywhere"
                 v-html="renderMarkdown(message.content)"
               ></div>
@@ -525,7 +567,7 @@ function renderMarkdown(content: string): string {
         <Button
           v-else
           @click="handleSend"
-          :disabled="!input.trim()"
+          :disabled="(!input.trim() && selectedFiles.length === 0) || isUploading"
           class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 h-11 rounded-lg shadow-sm"
           aria-label="发送"
         >
@@ -542,12 +584,15 @@ function renderMarkdown(content: string): string {
           ref="fileInputRef"
           type="file"
           multiple
+          accept="image/*,.pdf,.txt,.md,.markdown,.json,.xml,.csv,.log,.yaml,.yml"
           @change="handleFileChange"
           class="hidden"
         />
       </div>
       <div v-if="selectedFiles.length > 0" class="mt-2 flex flex-wrap gap-2">
-        <div v-for="(file, index) in selectedFiles" :key="`${file.name}-${index}`" class="flex items-center gap-2 text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-700">
+        <div v-for="(file, index) in selectedFiles" :key="`${file.name}-${index}`" class="flex max-w-full items-center gap-2 text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-white text-gray-700">
+          <img v-if="imagePreview(file)" :src="imagePreview(file)" :alt="file.name" class="h-6 w-6 shrink-0 rounded object-cover" />
+          <FileText v-else class="h-3.5 w-3.5 shrink-0 text-gray-400" />
           <span class="max-w-[160px] truncate">{{ file.name }}</span>
           <button type="button" class="text-gray-400 hover:text-red-500" @click="removeSelectedFile(index)" aria-label="移除文件">×</button>
         </div>
@@ -558,7 +603,7 @@ function renderMarkdown(content: string): string {
         <span>正在读取文件... {{ uploadProgress }}%</span>
       </div>
       <p class="text-xs text-gray-400 mt-2">
-        AI助手可能会产生错误信息，请仔细核实重要内容。未开启知识库增强时，上传的文件仅临时使用；开启后会基于整个知识库回答。
+        支持图片、PDF 和常见文本附件，单个文件不超过20MB。附件内容会用于本轮对话；开启知识库增强时还会尝试加入个人知识库。
       </p>
     </div>
     

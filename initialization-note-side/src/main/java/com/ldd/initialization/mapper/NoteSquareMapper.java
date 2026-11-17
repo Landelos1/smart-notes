@@ -23,8 +23,29 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
     @Select("SELECT * FROM t_note_square WHERE note_id = #{noteId} LIMIT 1")
     NoteSquare selectByNoteId(@Param("noteId") Long noteId);
 
+    @Select("""
+        SELECT COUNT(ns.id)::text || ':' ||
+               COALESCE(MAX(GREATEST(COALESCE(ns.update_time, ns.publish_time), n.update_time))::text, '')
+        FROM t_note_square ns
+        JOIN t_note n ON n.id = ns.note_id
+        WHERE ns.status = 1
+        """)
+    String selectPublishedCategoryFingerprint();
+
+    @Select("""
+        SELECT n.id AS id, n.title, LEFT(n.content_md, 1200) AS content,
+               ns.summary, nb.name AS category
+        FROM t_note_square ns
+        JOIN t_note n ON n.id = ns.note_id
+        LEFT JOIN t_notebook nb ON nb.id = n.notebook_id
+        WHERE ns.status = 1
+        ORDER BY ns.publish_time DESC
+        LIMIT 100
+        """)
+    List<NoteSquareVO> selectPublishedCategoryCandidates();
+
     @Select("<script>" +
-            "SELECT ns.id AS square_id, n.id AS id, n.title, n.content_md AS content, " +
+            "SELECT ns.id AS square_id, n.id AS id, n.title, n.content_md AS content, nb.name AS category, " +
             "ns.summary, ns.cover_url AS coverUrl, ns.status AS square_status, " +
             "ns.publish_time AS publish_time, ns.update_time AS update_time, " +
             "ns.view_count AS view_count, ns.like_count AS like_count, ns.favorite_count AS favorite_count, ns.comment_count AS comment_count, " +
@@ -34,6 +55,7 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
             "CASE WHEN nf.user_id IS NULL THEN false ELSE true END AS is_favorited " +
             "FROM t_note_square ns " +
             "JOIN t_note n ON ns.note_id = n.id " +
+            "LEFT JOIN t_notebook nb ON nb.id = n.notebook_id " +
             "LEFT JOIN t_user u ON n.user_id = u.id " +
             "LEFT JOIN t_note_like nl ON nl.note_id = n.id AND nl.user_id = #{userId} " +
             "LEFT JOIN t_note_favorite nf ON nf.note_id = n.id AND nf.user_id = #{userId} " +
@@ -52,6 +74,10 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
             "  OR n.content_md LIKE CONCAT('%', #{keyword}, '%') " +
             "  OR ns.summary LIKE CONCAT('%', #{keyword}, '%')) " +
             "</if> " +
+            "<if test='categoryNoteIds != null'> " +
+            "  AND n.id IN " +
+            "  <foreach collection='categoryNoteIds' item='noteId' open='(' separator=',' close=')'>#{noteId}</foreach> " +
+            "</if> " +
             "ORDER BY ns.is_pinned DESC, " +
             "<choose> " +
             "  <when test='sortBy == \"recommend\"'>ns.recommend_score</when> " +
@@ -67,6 +93,7 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
     IPage<NoteSquareVO> selectSquareList(Page<NoteSquareVO> page,
                                          @Param("keyword") String keyword,
                                          @Param("keywords") List<String> keywords,
+                                         @Param("categoryNoteIds") List<Long> categoryNoteIds,
                                          @Param("sortBy") String sortBy,
                                          @Param("sortOrder") String sortOrder,
                                          @Param("userId") Long userId);

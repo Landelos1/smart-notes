@@ -21,6 +21,8 @@ public interface NoteSquareService {
 
     PageResult<NoteSquareVO> getSquareNotes(NoteSquareSearchDTO searchDTO, Long userId);
 
+    List<String> getPublishedCategories();
+
     PageResult<NoteSquareVO> getFavoriteNotes(NoteSquareSearchDTO searchDTO, Long userId);
 
     PageResult<NoteSquareVO> getLikedNotes(NoteSquareSearchDTO searchDTO, Long userId);

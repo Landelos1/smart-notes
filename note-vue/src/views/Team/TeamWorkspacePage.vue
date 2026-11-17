@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import Button from '@/components/ui/Button.vue'
 import Input from '@/components/ui/Input.vue'
 import Avatar from '@/components/ui/Avatar.vue'
@@ -50,6 +50,7 @@ import {
   restoreDocVersion,
   getDocComments,
   addDocComment,
+  resolveComment,
   getTeamMembers,
   updateMemberRole,
   removeMember,
@@ -97,6 +98,7 @@ interface CommentItem {
   type: number
   quote?: string
   resolved?: boolean
+  parentId?: string | number
 }
 
 interface Member {
@@ -115,6 +117,7 @@ interface Session {
   title: string
   updateTime: string
   isPinned: boolean
+  lastMessage?: string
 }
 
 const teamInfo = ref<any>(null)
@@ -136,12 +139,54 @@ const versions = ref<any[]>([])
 const activities = ref<any[]>([])
 const members = ref<Member[]>([])
 const newComment = ref('')
+const replyTo = ref<CommentItem | null>(null)
+const commentPending = ref(false)
+const resolvingComments = ref(new Set<string>())
+const onlyUnresolved = ref(false)
+const docLoading = ref(false)
+const docError = ref('')
+const docSort = ref('recent')
+const articleRef = ref<HTMLElement | null>(null)
+let docRequest = 0
+const canEditDocs = computed(() => teamInfo.value?.myRole != null && teamInfo.value.myRole <= 2)
+const openCommentCount = computed(() => comments.value.filter(c => !c.resolved).length)
+const visibleComments = computed(() => comments.value.filter(c => !onlyUnresolved.value || !c.resolved))
 const selectedNote = computed(() => notes.value.find(n => n.id === selectedNoteId.value) || null)
 const filteredNotes = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return notes.value
-  return notes.value.filter(n => n.title.toLowerCase().includes(q))
+  const list = notes.value.filter(n => !q || `${n.title} ${n.excerpt || ''}`.toLowerCase().includes(q))
+  return [...list].sort((a, b) => docSort.value === 'title'
+    ? a.title.localeCompare(b.title, 'zh-CN')
+    : new Date(b.updateTime).getTime() - new Date(a.updateTime).getTime())
 })
+
+function normalizeDoc(doc: any): Note {
+  return { ...doc, id: String(doc.id) }
+}
+
+function excerptText(value: string) {
+  return (value || '').replace(/[#>*_`\[\]]/g, '').replace(/\s+/g, ' ').trim()
+}
+
+const renderedDocument = computed(() => {
+  const html = renderMarkdown(selectedNote.value?.contentMd || '')
+  const parsed = new DOMParser().parseFromString(html, 'text/html')
+  const headings = [...parsed.querySelectorAll('h1,h2,h3')].map((heading, index) => {
+    const id = `team-section-${index}`
+    heading.id = id
+    return { id, text: heading.textContent || '' }
+  })
+  return { html: parsed.body.innerHTML, headings }
+})
+
+function jumpToSection(id: string) {
+  articleRef.value?.querySelector(`#${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+function unwrapTeamResponse(res: any, fallback: string) {
+  if (res?.code !== 0) throw new Error(res?.message || fallback)
+  return res.data
+}
 
 // 加载团队信息
 async function loadTeamInfo() {
@@ -382,7 +427,7 @@ async function loadDocs() {
     const res = await getTeamDocs(props.teamId, { page: 1, size: 50 })
     if (res.code === 0 && res.data) {
       const oldMap = new Map((notes.value || []).map(n => [n.id, n]))
-      const list = res.data.data || []
+      const list = (res.data.data || []).map(normalizeDoc)
       notes.value = list.map((n: any) => {
         const old = oldMap.get(n.id) || {}
         const merged: any = {
@@ -393,7 +438,7 @@ async function loadDocs() {
         return merged
       })
       if (notes.value.length > 0 && !selectedNoteId.value) {
-        selectNote(notes.value[0].id)
+        await selectNote(notes.value[0].id)
       }
     }
   } catch (e) {
@@ -404,9 +449,10 @@ async function loadDocs() {
 // 加载评论
 async function loadComments() {
   if (!selectedNoteId.value) return
+  const docId = selectedNoteId.value
   try {
-    const res = await getDocComments(props.teamId, selectedNoteId.value)
-    if (res.code === 0) comments.value = res.data || []
+    const res = await getDocComments(props.teamId, docId)
+    if (selectedNoteId.value === docId && res.code === 0) comments.value = res.data || []
   } catch (e) {
     console.error('加载评论失败', e)
   }
@@ -415,9 +461,10 @@ async function loadComments() {
 // 加载版本历史
 async function loadVersions() {
   if (!selectedNoteId.value) return
+  const docId = selectedNoteId.value
   try {
-    const res = await getDocVersions(props.teamId, selectedNoteId.value)
-    if (res.code === 0) versions.value = res.data || []
+    const res = await getDocVersions(props.teamId, docId)
+    if (selectedNoteId.value === docId && res.code === 0) versions.value = res.data || []
   } catch (e) {
     console.error('加载版本失败', e)
   }
@@ -426,9 +473,10 @@ async function loadVersions() {
 // 加载动态
 async function loadActivities() {
   if (!selectedNoteId.value) return
+  const docId = selectedNoteId.value
   try {
-    const res = await getDocActivities(props.teamId, selectedNoteId.value)
-    if (res.code === 0) activities.value = res.data || []
+    const res = await getDocActivities(props.teamId, docId)
+    if (selectedNoteId.value === docId && res.code === 0) activities.value = res.data || []
   } catch (e) {
     console.error('加载动态失败', e)
   }
@@ -446,20 +494,40 @@ async function loadMembers() {
 
 // 添加评论
 async function handleAddComment() {
-  if (!newComment.value.trim() || !selectedNoteId.value) return
+  if (!newComment.value.trim() || !selectedNoteId.value || commentPending.value) return
+  const docId = selectedNoteId.value
+  commentPending.value = true
   try {
-    const res = await addDocComment(props.teamId, selectedNoteId.value, {
+    const res = await addDocComment(props.teamId, docId, {
       content: newComment.value.trim(),
+      parentId: replyTo.value?.id,
       type: 1
     })
     if (res.code === 0) {
       newComment.value = ''
+      replyTo.value = null
       await loadComments()
     } else {
       await modal.error(res.message || '评论失败')
     }
   } catch (e) {
     await modal.error('评论失败，请重试')
+  } finally {
+    commentPending.value = false
+  }
+}
+
+async function handleResolveComment(comment: CommentItem) {
+  const id = String(comment.id)
+  if (!selectedNoteId.value || !canEditDocs.value || resolvingComments.value.has(id)) return
+  resolvingComments.value.add(id)
+  try {
+    unwrapTeamResponse(await resolveComment(props.teamId, selectedNoteId.value, id), '标记处理结果失败')
+    await loadComments()
+  } catch (error) {
+    await modal.error(error instanceof Error ? error.message : '标记处理结果失败')
+  } finally {
+    resolvingComments.value.delete(id)
   }
 }
 
@@ -536,18 +604,12 @@ function releaseLockSync() {
   try {
     fetch(
       `/api/teams/${props.teamId}/docs/${selectedNote.value.id}/lock?lockToken=${encodeURIComponent(currentLockToken.value)}`,
-      { method: 'DELETE', keepalive: true }
+      { method: 'DELETE', keepalive: true, headers: { Authorization: `Bearer ${localStorage.getItem('satoken') || ''}` } }
     )
   } catch (e) {
     console.error('释放锁失败', e)
   }
 }
-
-watch(selectedNoteId, () => {
-  loadComments()
-  loadVersions()
-  if (rightPanelTab.value === 'activity') loadActivities()
-})
 
 watch(currentView, (v) => {
   if (v === 'members') loadMembers()
@@ -559,21 +621,32 @@ watch(rightPanelTab, (t) => {
 })
 
 async function selectNote(noteId: string) {
-  selectedNoteId.value = noteId
-  isEditing.value = false
+  if (isEditing.value) {
+    await modal.warning('请先保存或取消当前文档的修改')
+    return
+  }
+  const id = String(noteId)
+  const request = ++docRequest
+  selectedNoteId.value = id
+  docLoading.value = true
+  docError.value = ''
+  comments.value = []
+  versions.value = []
+  activities.value = []
+  replyTo.value = null
+  newComment.value = ''
   try {
-    const res = await getDocDetail(props.teamId, noteId)
-    if (res.code === 0 && res.data) {
-      const doc = res.data
-      editorContent.value = doc.contentMd || ''
-      // 更新本地数据
-      const idx = notes.value.findIndex(n => n.id === noteId)
-      if (idx >= 0) {
-        notes.value[idx] = { ...notes.value[idx], ...doc }
-      }
-    }
+    const doc = normalizeDoc(unwrapTeamResponse(await getDocDetail(props.teamId, id), '文档加载失败'))
+    if (request !== docRequest) return
+    editorContent.value = doc.contentMd || ''
+    const idx = notes.value.findIndex(n => n.id === id)
+    if (idx >= 0) notes.value[idx] = { ...notes.value[idx], ...doc }
+    else notes.value.push(doc)
+    await Promise.allSettled([loadComments(), loadVersions(), loadActivities()])
   } catch (e) {
-    console.error('加载文档详情失败', e)
+    if (request === docRequest) docError.value = e instanceof Error ? e.message : '文档加载失败'
+  } finally {
+    if (request === docRequest) docLoading.value = false
   }
 }
 
@@ -588,8 +661,8 @@ async function handleCreateDoc() {
   try {
     const res = await createDoc(props.teamId, { title: title.trim(), contentMd: '# ' + title.trim() + '\n\n' })
     if (res.code === 0 && res.data) {
-      notes.value = [res.data, ...notes.value]
-      selectNote(res.data.id)
+      notes.value = [normalizeDoc(res.data), ...notes.value]
+      await selectNote(String(res.data.id))
       await modal.success('文档创建成功')
     } else {
       await modal.error(res.message || '创建失败')
@@ -750,9 +823,11 @@ async function handleOpenCitation(cite: any) {
   const docId = cite?.docId ?? cite?.id
   if (!docId) return
 
+  if (isEditing.value) {
+    await modal.warning('请先保存或取消当前文档的修改')
+    return
+  }
   currentView.value = 'notes'
-  selectedNoteId.value = String(docId)
-
   await selectNote(String(docId))
   await loadDocs()
 }
@@ -1286,9 +1361,15 @@ async function handleCopyInviteLink() {
               />
             </div>
 
-            <div class="flex items-center gap-2 text-xs text-gray-500 px-1 pb-1">
-              <span class="font-medium text-gray-700">最近更新</span>
-              <ChevronDown class="w-3 h-3" />
+            <div class="flex items-center justify-between gap-2 px-1 pb-1 text-xs text-gray-500">
+              <span>{{ filteredNotes.length }} 份资料</span>
+              <label class="flex items-center gap-1.5">
+                <span>排序</span>
+                <select v-model="docSort" aria-label="团队文档排序" class="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700">
+                  <option value="recent">最近更新</option>
+                  <option value="title">按标题</option>
+                </select>
+              </label>
             </div>
           </div>
 
@@ -1326,10 +1407,9 @@ async function handleCopyInviteLink() {
                   </Button>
                 </div>
               </div>
-              <p class="text-xs text-gray-500 line-clamp-2 ml-6 mb-2">{{ note.excerpt || '' }}</p>
+              <p class="text-xs text-gray-500 line-clamp-2 ml-6 mb-2">{{ excerptText(note.excerpt || '') }}</p>
               <div class="ml-6 flex items-center gap-2 text-[10px] text-gray-400">
-                <span>{{ note.updatedByUser?.username || '未知' }}</span>
-                <span>•</span>
+                <span>更新者：{{ note.updatedByUser?.username || '团队成员' }}</span>
                 <span>{{ formatTime(note.updateTime) }}</span>
                 <Badge
                   v-if="note.status === 0"
@@ -1345,7 +1425,7 @@ async function handleCopyInviteLink() {
               <div class="wc-empty-icon"><FileText /></div>
               <div class="wc-empty-title !text-[13px]">{{ searchQuery ? '没有匹配的文档' : '还没有文档' }}</div>
               <div class="wc-empty-desc !text-[12px]">
-                {{ searchQuery ? '换个关键词试试' : '点右上角「新建文档」写第一篇' }}
+                {{ searchQuery ? '标题和摘要均未匹配，换个关键词试试' : '从项目目标、接口约定或会议纪要开始整理，团队成员可以评论并追踪修改历史。' }}
               </div>
             </div>
           </div>
@@ -1394,7 +1474,7 @@ async function handleCopyInviteLink() {
               <template v-else>
                 <div class="flex items-center gap-2">
                   <span v-if="selectedNote" class="text-xs text-gray-400">上次更新: {{ selectedNote.updateTime ? formatTime(selectedNote.updateTime) : '-' }}</span>
-                  <Button size="sm" class="gap-2" :disabled="!selectedNote || !!selectedNote.lockedBy" @click="handleTakeLock">
+                  <Button size="sm" class="gap-2" :disabled="!selectedNote || docLoading || !!docError || !canEditDocs || !!selectedNote.lockedBy" @click="handleTakeLock">
                     <PenTool class="w-4 h-4" />
                     编辑
                   </Button>
@@ -1410,10 +1490,28 @@ async function handleCopyInviteLink() {
 
           <div class="flex-1 overflow-hidden flex min-h-0">
             <div class="ws-paper">
-              <div v-if="!selectedNote" class="wc-empty h-full">
+              <div v-if="docLoading" class="wc-empty h-full">
                 <div class="wc-empty-icon"><FileText /></div>
-                <div class="wc-empty-title">选择一篇文档开始阅读</div>
-                <div class="wc-empty-desc">左侧列表里点任意一篇，正文就会显示在这里。</div>
+                <div class="wc-empty-title">正在加载团队文档</div>
+                <div class="wc-empty-desc">正文、评论和版本记录会根据当前文档一起更新。</div>
+              </div>
+
+              <div v-else-if="docError" class="wc-empty h-full">
+                <div class="wc-empty-icon"><FileText /></div>
+                <div class="wc-empty-title">文档加载失败</div>
+                <div class="wc-empty-desc">{{ docError }}</div>
+                <Button variant="outline" class="mt-3" @click="selectedNoteId && selectNote(selectedNoteId)">重新加载</Button>
+              </div>
+
+              <div v-else-if="!selectedNote" class="wc-empty h-full">
+                <div class="wc-empty-icon"><FileText /></div>
+                <div class="wc-empty-title">团队资料工作区</div>
+                <div class="wc-empty-desc">选择一份资料查看负责人和正文，再用右侧面板跟进评论、版本和协作动态。</div>
+                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                  <Button v-if="filteredNotes[0]" variant="outline" @click="selectNote(filteredNotes[0].id)">打开最近资料</Button>
+                  <Button v-if="canEditDocs" @click="handleCreateDoc"><Plus class="w-4 h-4" />新建团队文档</Button>
+                  <Button variant="outline" class="gap-2" @click="currentView = 'ai'; loadSessions()"><Bot class="w-4 h-4" />向团队资料提问</Button>
+                </div>
               </div>
 
               <template v-else>
@@ -1422,11 +1520,17 @@ async function handleCopyInviteLink() {
                 </div>
 
                 <div v-else class="flex-1 min-h-0 overflow-y-auto">
-                  <div class="max-w-3xl mx-auto py-10 px-8">
+                  <div class="max-w-5xl mx-auto py-8 px-8">
+                    <div v-if="renderedDocument.headings.length" class="mb-6 rounded-lg border border-gray-100 bg-white px-4 py-3">
+                      <div class="mb-2 text-xs font-semibold text-gray-500">文档目录</div>
+                      <div class="flex flex-wrap gap-2">
+                        <button v-for="heading in renderedDocument.headings" :key="heading.id" class="rounded border border-gray-100 px-2 py-1 text-xs text-gray-600 hover:border-blue-200 hover:text-blue-700" @click="jumpToSection(heading.id)">{{ heading.text }}</button>
+                      </div>
+                    </div>
                     <!-- 项目未安装 @tailwindcss/typography，prose-* 全是无效类；
                          正文改用站内已有的 .markdown-preview 排版 -->
-                    <article class="markdown-preview text-[15px] text-gray-800">
-                      <div v-html="renderMarkdown(selectedNote.contentMd)" />
+                    <article ref="articleRef" class="markdown-preview text-[15px] text-gray-800">
+                      <div v-html="renderedDocument.html" />
                     </article>
                   </div>
                 </div>
@@ -1449,15 +1553,15 @@ async function handleCopyInviteLink() {
 
               <div v-if="rightPanelTab === 'comments'" class="flex-1 flex flex-col min-h-0">
                 <div class="p-4 flex items-center justify-between border-b border-gray-200">
-                  <span class="text-xs font-medium text-gray-500">{{ comments.length }} 条评论</span>
-                  <Button variant="ghost" size="icon" class="h-6 w-6">
-                    <Check class="w-4 h-4 text-gray-400" />
+                  <span class="text-xs font-medium text-gray-500">{{ comments.length }} 条讨论 · {{ openCommentCount }} 项待跟进</span>
+                  <Button variant="outline" size="sm" class="h-7 px-2 text-xs" :aria-pressed="onlyUnresolved" @click="onlyUnresolved = !onlyUnresolved">
+                    {{ onlyUnresolved ? '显示全部' : '仅看待跟进' }}
                   </Button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto p-4">
-                  <div class="space-y-6">
-                    <div v-for="c in comments" :key="c.id" class="group">
+                  <div class="space-y-5">
+                    <div v-for="c in visibleComments" :key="c.id" class="group" :class="c.parentId ? 'ml-5 border-l-2 border-gray-100 pl-3' : ''">
                       <div class="flex items-center gap-2 mb-2">
                         <Avatar class="w-6 h-6">
                           <img v-if="c.user?.avatarUrl" :src="c.user.avatarUrl" class="w-full h-full object-cover rounded-full" />
@@ -1481,21 +1585,29 @@ async function handleCopyInviteLink() {
                       </p>
 
                       <div class="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button class="text-[10px] text-gray-400 hover:text-blue-600">回复</button>
-                        <button v-if="!c.resolved" class="text-[10px] text-gray-400 hover:text-green-600">解决</button>
-                        <span v-else class="text-[10px] text-green-600">已解决</span>
+                        <button v-if="c.type === 1 && !c.parentId" class="text-[10px] text-gray-400 hover:text-blue-600" @click="replyTo = c">回复</button>
+                        <button v-if="!c.resolved && canEditDocs" class="text-[10px] text-gray-400 hover:text-green-600 disabled:opacity-50" :disabled="resolvingComments.has(String(c.id))" @click="handleResolveComment(c)">标记已处理</button>
+                        <span v-if="c.resolved" class="text-[10px] text-green-600">已处理</span>
                       </div>
                     </div>
-                    <div v-if="comments.length === 0" class="wc-empty !py-8"><div class="wc-empty-desc !text-[12px]">还没有评论，在下方输入框说两句</div></div>
+                    <div v-if="visibleComments.length === 0" class="wc-empty !py-8">
+                      <div class="wc-empty-title !text-[13px]">{{ comments.length ? '没有待跟进评论' : '还没有讨论' }}</div>
+                      <div class="wc-empty-desc !text-[12px]">{{ comments.length ? '切换筛选即可查看已处理记录。' : '针对文档内容提问或留下验收结论，团队可以在此回复并跟进。' }}</div>
+                    </div>
                   </div>
                 </div>
 
                 <div class="p-4 bg-white border-t border-gray-200">
+                  <div v-if="replyTo" class="mb-2 flex items-center justify-between rounded bg-blue-50 px-2 py-1.5 text-xs text-blue-800">
+                    <span class="truncate">回复 {{ replyTo.user?.username || '团队成员' }}：{{ replyTo.content }}</span>
+                    <button class="ml-2 shrink-0" aria-label="取消回复" @click="replyTo = null"><X class="h-3.5 w-3.5" /></button>
+                  </div>
                   <Input 
-                    placeholder="输入评论 (Enter 发送)..." 
+                    :placeholder="replyTo ? '回复这条讨论 (Enter 发送)...' : '补充问题、验收结果或决策 (Enter 发送)...'"
                     class="text-sm" 
                     v-model="newComment"
                     @keydown.enter.prevent="handleAddComment"
+                    :disabled="commentPending || !selectedNote"
                   />
                 </div>
               </div>
@@ -1518,7 +1630,7 @@ async function handleCopyInviteLink() {
                       恢复此版本
                     </Button>
                   </div>
-                  <div v-if="versions.length === 0" class="wc-empty !py-8"><div class="wc-empty-desc !text-[12px]">还没有历史版本，每次保存都会留下一个版本</div></div>
+                  <div v-if="versions.length === 0" class="wc-empty !py-8"><div class="wc-empty-title !text-[13px]">暂无历史版本</div><div class="wc-empty-desc !text-[12px]">编辑并保存文档后，每次变更都会保留快照，可从此处恢复。</div></div>
                 </div>
               </div>
 
@@ -1539,7 +1651,7 @@ async function handleCopyInviteLink() {
                       <div class="text-gray-400 mt-0.5">{{ formatTime(a.createTime) }}</div>
                     </div>
                   </div>
-                  <div v-if="activities.length === 0" class="wc-empty !py-8"><div class="wc-empty-desc !text-[12px]">还没有动态，团队操作记录会显示在这里</div></div>
+                  <div v-if="activities.length === 0" class="wc-empty !py-8"><div class="wc-empty-title !text-[13px]">暂无协作动态</div><div class="wc-empty-desc !text-[12px]">创建文档、发表讨论和更新版本后，相关操作会按时间记录。</div></div>
                 </div>
               </div>
             </div>

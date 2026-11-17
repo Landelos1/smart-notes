@@ -27,6 +27,8 @@ public class NoteSquareVO {
 
     private String summary;
 
+    private String category;
+
     private String coverUrl;
 
     private Long authorId;

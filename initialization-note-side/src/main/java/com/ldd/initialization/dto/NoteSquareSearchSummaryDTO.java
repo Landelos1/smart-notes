@@ -14,6 +14,8 @@ public class NoteSquareSearchSummaryDTO {
     @NotBlank(message = "keyword is required")
     private String keyword;
 
+    private String category;
+
     @Min(value = 1, message = "maxNotes must be >= 1")
     @Max(value = 20, message = "maxNotes must be <= 20")
     private Integer maxNotes = 10;

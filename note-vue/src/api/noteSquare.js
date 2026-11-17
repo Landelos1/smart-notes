@@ -9,9 +9,14 @@ export async function getNoteSquare(params = {}) {
   query.set('page', String(params.page || 1))
   query.set('size', String(params.size || 10))
   if (params.keyword) query.set('keyword', params.keyword)
+  if (params.category) query.set('category', params.category)
   if (params.sortBy) query.set('sortBy', params.sortBy)
   if (params.sortOrder) query.set('sortOrder', params.sortOrder)
   return apiFetch(`/api/note-square?${query.toString()}`, { method: 'GET' })
+}
+
+export async function getNoteSquareCategories() {
+  return apiFetch('/api/note-square/categories', { method: 'GET' })
 }
 
 export async function publishNoteSquare(data) {

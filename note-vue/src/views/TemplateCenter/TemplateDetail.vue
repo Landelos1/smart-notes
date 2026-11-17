@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import Button from '@/components/ui/Button.vue'
+import ResourceCover from '@/components/common/ResourceCover.vue'
 import {
   ArrowLeft, Star, Download, Eye, Clock, User, Share2, Heart,
   BookmarkPlus, MoreVertical, ThumbsUp, MessageSquare, ChevronRight, AlertCircle
@@ -357,7 +358,7 @@ onMounted(() => {
           <!-- Thumbnail -->
           <div class="w-80 flex-shrink-0">
             <div class="relative rounded-lg overflow-hidden border border-gray-200">
-              <img :src="template.thumbnail" :alt="template.title" class="w-full h-64 object-cover" />
+              <ResourceCover :src="template.thumbnail" :title="template.title" class="h-64 w-full" />
               <div class="absolute top-3 right-3">
                 <span class="px-3 py-1.5 bg-white/90 backdrop-blur rounded-lg text-sm flex items-center gap-1.5 shadow-sm">
                   <Star class="w-4 h-4 text-yellow-500 fill-yellow-500" />
@@ -518,7 +519,7 @@ onMounted(() => {
                 <div v-for="related in relatedTemplates" :key="related.id"
                   @click="handleRelatedTemplateClick(related)"
                   class="flex gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors border border-transparent hover:border-gray-200">
-                  <img :src="related.thumbnail" :alt="related.title" class="w-16 h-16 rounded object-cover flex-shrink-0" />
+                  <ResourceCover :src="related.thumbnail" :title="related.title" class="h-16 w-16 shrink-0 rounded" />
                   <div class="flex-1 min-w-0">
                     <h4 class="text-sm text-gray-900 mb-1 truncate">{{ related.title }}</h4>
                     <p class="text-xs text-gray-500 line-clamp-2 mb-1">{{ related.description }}</p>

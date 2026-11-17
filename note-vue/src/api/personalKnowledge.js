@@ -64,6 +64,11 @@ export async function structureDocumentNote(file) {
   return uploadFile('/api/documents/structure-note', file, 'file')
 }
 
+/** Extract an attachment for a single chat request without storing it in the knowledge base. */
+export async function extractChatAttachment(file) {
+  return uploadFile('/api/documents/chat-context', file, 'file')
+}
+
 /**
  * 删除文档
  * @param {number} fileId - 文件ID

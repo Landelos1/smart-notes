@@ -10,6 +10,8 @@ public class NoteSquareSearchDTO {
 
     private String keyword;
 
+    private String category;
+
     /**
      * recommend | latest | update_time
      */
