@@ -240,8 +240,10 @@ public class MembershipQuotaServiceImpl implements MembershipQuotaService {
         membership.setAiCallUsed(0);
         membership.setLastAiResetTime(new Date());
         membership.setKbQuota(3);  // 普通会员默认3个知识库
-        membership.setKbUsed(0);
-        membership.setIsActive(true);
+        membership.setKbUsed((int) Math.min(Integer.MAX_VALUE,
+                sharedKnowledgeBaseMapper.countCreatedByUserId(userId)));
+        // 默认免费配额不表示已开通付费会员。
+        membership.setIsActive(false);
         membership.setCreateTime(new Date());
         membership.setUpdateTime(new Date());
         

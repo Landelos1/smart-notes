@@ -13,6 +13,8 @@ import com.ldd.initialization.dto.AdminUserCreateDTO;
 import com.ldd.initialization.dto.AdminUserUpdateDTO;
 import com.ldd.initialization.dto.LoginDTO;
 import com.ldd.initialization.dto.RegisterDTO;
+import com.ldd.initialization.dto.UserProfileUpdateDTO;
+import com.ldd.initialization.dto.PasswordChangeDTO;
 import com.ldd.initialization.result.PageResult;
 import com.ldd.initialization.result.Result;
 import com.ldd.initialization.service.FileInfoService;
@@ -54,7 +56,7 @@ public class CommonController {
      */
     @SaIgnore
     @PostMapping("/register")
-    public Result<Void> register(@RequestBody RegisterDTO request) {
+    public Result<Void> register(@Valid @RequestBody RegisterDTO request) {
         userService.register(
                 request.getPhone(),
                 request.getPassword(),
@@ -139,11 +141,17 @@ public class CommonController {
     /**
      * 更新用户信息
      */
+    @SaCheckLogin
     @PutMapping("/user/update")
-    public Result<Void> updateUser(@RequestBody User user) {
-        Long userId = Long.valueOf(StpUtil.getLoginId().toString());
-        user.setId(userId);
-        userService.updateUser(user);
+    public Result<Void> updateUser(@Valid @RequestBody UserProfileUpdateDTO request) {
+        userService.updateUserProfile(StpUtil.getLoginIdAsLong(), request);
+        return Result.success(null);
+    }
+
+    @SaCheckLogin
+    @PutMapping("/user/password")
+    public Result<Void> changePassword(@Valid @RequestBody PasswordChangeDTO request) {
+        userService.changePassword(StpUtil.getLoginIdAsLong(), request);
         return Result.success(null);
     }
 
@@ -259,7 +267,7 @@ public class CommonController {
      * @param userId 可选的用户ID，用于检查特定用户的向量数据
      * @return 诊断结果
      */
-    @SaIgnore
+    @SaCheckRole("ADMIN")
     @GetMapping("/diagnose/vector-db")
     public Result<Map<String, Object>> diagnoseVectorDatabase(@RequestParam(required = false) Long userId) {
         Map<String, Object> result = new HashMap<>();

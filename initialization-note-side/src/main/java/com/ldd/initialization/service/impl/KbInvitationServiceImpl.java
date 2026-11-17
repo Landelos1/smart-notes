@@ -46,6 +46,7 @@ public class KbInvitationServiceImpl extends ServiceImpl<KbInvitationMapper, KbI
 
     @Override
     public Map<String, Object> getMyInvitations(Long userId, Integer status, Integer page, Integer size) {
+        invitationMapper.expireInvitations(userId);
         // 参数校验
         if (status == null) {
             status = InvitationStatusEnum.PENDING.getValue();
@@ -69,7 +70,7 @@ public class KbInvitationServiceImpl extends ServiceImpl<KbInvitationMapper, KbI
                 try {
                     LocalDateTime expireTime = LocalDateTime.parse(invitation.getExpireTime(), DATE_TIME_FORMATTER);
                     long daysLeft = Duration.between(now, expireTime).toDays();
-                    invitation.setDaysLeft((int) daysLeft);
+                    invitation.setDaysLeft((int) Math.max(0, daysLeft));
                 } catch (Exception e) {
                     log.warn("解析过期时间失败: {}", invitation.getExpireTime(), e);
                     invitation.setDaysLeft(0);
@@ -88,6 +89,7 @@ public class KbInvitationServiceImpl extends ServiceImpl<KbInvitationMapper, KbI
 
     @Override
     public Integer getPendingInvitationCount(Long userId) {
+        invitationMapper.expireInvitations(userId);
         Integer count = invitationMapper.countPendingInvitations(userId);
         return count != null ? count : 0;
     }

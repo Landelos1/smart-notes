@@ -2,6 +2,7 @@ package com.ldd.initialization.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.ldd.initialization.config.exception.BizException;
 import com.ldd.initialization.domain.Template;
 import com.ldd.initialization.domain.TemplateComment;
 import com.ldd.initialization.domain.TemplateCommentLike;
@@ -70,6 +71,19 @@ public class TemplateServiceImpl implements TemplateService {
     public PageResult<TemplateVO> searchTemplates(TemplateSearchDTO searchDTO) {
         // 构建查询条件
         LambdaQueryWrapper<Template> queryWrapper = new LambdaQueryWrapper<>();
+
+        if (!UserUtils.isAdmin()) {
+            Long userId = UserUtils.getCurrentUserId();
+            queryWrapper.and(wrapper -> wrapper
+                    .eq(Template::getIsPublic, true)
+                    .eq(Template::getStatus, 1)
+                    .or()
+                    .eq(Template::getAuthorId, userId));
+        }
+
+        if (searchDTO.getStatus() != null) {
+            queryWrapper.eq(Template::getStatus, searchDTO.getStatus());
+        }
         
         // 分类过滤（all表示全部）
         if (StringUtils.hasText(searchDTO.getCategory()) && !"all".equals(searchDTO.getCategory())) {
@@ -104,10 +118,7 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public TemplateVO getTemplateById(Long id) {
-        Template template = templateMapper.selectById(id);
-        if (template == null) {
-            return null;
-        }
+        Template template = requireAccessibleTemplate(id);
         
         // 增加浏览次数
         templateMapper.incrementViews(id);
@@ -117,22 +128,21 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public List<TemplateVO> getRelatedTemplates(Long templateId, Integer limit) {
-        Template template = templateMapper.selectById(templateId);
-        if (template == null) {
-            return Collections.emptyList();
-        }
+        Template template = requireAccessibleTemplate(templateId);
         
         List<Template> relatedTemplates = templateMapper.selectRelatedTemplates(
             template.getCategory(), templateId, limit != null ? limit : 3
         );
-        
-        return convertToVOList(relatedTemplates);
+
+        return convertToVOList(relatedTemplates.stream()
+                .filter(this::canAccessTemplate)
+                .toList());
     }
 
     @Override
     public List<TemplateCommentVO> getTemplateComments(Long templateId) {
+        Template template = requireAccessibleTemplate(templateId);
         List<TemplateComment> comments = templateCommentMapper.selectByTemplateId(templateId);
-        Template template = templateMapper.selectById(templateId);
         String templateTitle = template != null ? template.getTitle() : null;
         
         // 获取用户信息
@@ -246,11 +256,13 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public void useTemplate(Long templateId) {
+        requireAccessibleTemplate(templateId);
         templateMapper.incrementDownloads(templateId);
     }
 
     @Override
     public void likeComment(Long commentId) {
+        requireAccessibleComment(commentId);
         templateCommentMapper.incrementLikes(commentId);
     }
 
@@ -302,6 +314,9 @@ public class TemplateServiceImpl implements TemplateService {
             vo.setViews(template.getViews() != null ? template.getViews() : 0);
             vo.setAuthorId(template.getAuthorId());
             vo.setUpdatedAt(template.getUpdatedAt());
+            vo.setIsPublic(template.getIsPublic());
+            vo.setStatus(template.getStatus());
+            vo.setCreateTime(template.getCreateTime());
             vo.setTags(tagMap.getOrDefault(template.getId(), Collections.emptyList()));
             
             // 设置作者名称
@@ -478,10 +493,7 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public TemplateShareVO generateShareInfo(Long templateId) {
-        Template template = templateMapper.selectById(templateId);
-        if (template == null) {
-            throw new RuntimeException("模板不存在");
-        }
+        Template template = requireAccessibleTemplate(templateId);
 
         TemplateShareVO vo = new TemplateShareVO();
         vo.setShareUrl(frontendUrl.replaceAll("/+$", "") + "/templates/" + templateId);
@@ -495,6 +507,7 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public void favoriteTemplate(Long templateId, Long userId) {
+        requireAccessibleTemplate(templateId);
         // 检查是否已收藏
         TemplateFavorite existing = templateFavoriteMapper.selectByUserIdAndTemplateId(userId, templateId);
         if (existing != null) {
@@ -511,6 +524,7 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public void unfavoriteTemplate(Long templateId, Long userId) {
+        requireAccessibleTemplate(templateId);
         LambdaQueryWrapper<TemplateFavorite> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TemplateFavorite::getUserId, userId)
                .eq(TemplateFavorite::getTemplateId, templateId);
@@ -519,49 +533,53 @@ public class TemplateServiceImpl implements TemplateService {
 
     @Override
     public boolean getFavoriteStatus(Long templateId, Long userId) {
+        requireAccessibleTemplate(templateId);
         TemplateFavorite favorite = templateFavoriteMapper.selectByUserIdAndTemplateId(userId, templateId);
         return favorite != null;
     }
 
     @Override
     public PageResult<TemplateVO> getFavoriteTemplates(Long userId, Integer page, Integer size) {
-        // 查询用户收藏的模板ID列表
+        // Filter inaccessible templates before paging so withdrawn/private items do not appear.
         LambdaQueryWrapper<TemplateFavorite> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TemplateFavorite::getUserId, userId)
                .orderByDesc(TemplateFavorite::getCreateTime);
 
-        Page<TemplateFavorite> favoritePage = new Page<>(page, size);
-        Page<TemplateFavorite> resultPage = templateFavoriteMapper.selectPage(favoritePage, wrapper);
-
-        if (resultPage.getRecords().isEmpty()) {
+        List<TemplateFavorite> favorites = templateFavoriteMapper.selectList(wrapper);
+        if (favorites.isEmpty()) {
             PageResult<TemplateVO> emptyResult = new PageResult<>();
             emptyResult.setData(Collections.emptyList());
             emptyResult.setTotal(0L);
             return emptyResult;
         }
 
-        // 获取模板ID列表
-        List<Long> templateIds = resultPage.getRecords().stream()
+        List<Long> templateIds = favorites.stream()
             .map(TemplateFavorite::getTemplateId)
             .collect(Collectors.toList());
+        Map<Long, Template> templateById = templateMapper.selectBatchIds(templateIds).stream()
+                .collect(Collectors.toMap(Template::getId, template -> template, (first, duplicate) -> first));
+        List<Template> accessibleTemplates = templateIds.stream()
+                .map(templateById::get)
+                .filter(Objects::nonNull)
+                .filter(this::canAccessTemplate)
+                .toList();
 
-        // 查询模板详情
-        List<Template> templates = templateMapper.selectBatchIds(templateIds);
-        List<TemplateVO> templateVOs = convertToVOList(templates);
+        int pageNo = page == null || page < 1 ? 1 : page;
+        int pageSize = size == null || size < 1 ? 10 : Math.min(size, 100);
+        int fromIndex = (int) Math.min((long) (pageNo - 1) * pageSize, accessibleTemplates.size());
+        int toIndex = Math.min(fromIndex + pageSize, accessibleTemplates.size());
+        List<TemplateVO> templateVOs = convertToVOList(accessibleTemplates.subList(fromIndex, toIndex));
 
         PageResult<TemplateVO> pageResult = new PageResult<>();
         pageResult.setData(templateVOs);
-        pageResult.setTotal(resultPage.getTotal());
+        pageResult.setTotal((long) accessibleTemplates.size());
         return pageResult;
     }
 
     @Override
     @Transactional
     public void reportTemplate(Long templateId, TemplateReportDTO reportDTO, Long userId) {
-        Template template = templateMapper.selectById(templateId);
-        if (template == null) {
-            throw new RuntimeException("模板不存在");
-        }
+        requireAccessibleTemplate(templateId);
 
         TemplateReport report = new TemplateReport();
         report.setTemplateId(templateId);
@@ -576,10 +594,7 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public TemplateCommentVO createComment(Long templateId, TemplateCommentCreateDTO commentDTO, Long userId) {
-        Template template = templateMapper.selectById(templateId);
-        if (template == null) {
-            throw new RuntimeException("模板不存在");
-        }
+        Template template = requireAccessibleTemplate(templateId);
 
         // 插入评论
         TemplateComment comment = new TemplateComment();
@@ -625,6 +640,7 @@ public class TemplateServiceImpl implements TemplateService {
     @Override
     @Transactional
     public void unlikeComment(Long commentId, Long userId) {
+        requireAccessibleComment(commentId);
         LambdaQueryWrapper<TemplateCommentLike> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(TemplateCommentLike::getCommentId, commentId)
                .eq(TemplateCommentLike::getUserId, userId);
@@ -635,6 +651,32 @@ public class TemplateServiceImpl implements TemplateService {
             // 减少评论点赞数
             templateCommentMapper.decrementLikes(commentId);
         }
+    }
+
+    private Template requireAccessibleTemplate(Long templateId) {
+        Template template = templateMapper.selectById(templateId);
+        if (!canAccessTemplate(template)) {
+            throw new BizException("模板不存在或无权访问");
+        }
+        return template;
+    }
+
+    private boolean canAccessTemplate(Template template) {
+        if (template == null) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(template.getIsPublic()) && Integer.valueOf(1).equals(template.getStatus())) {
+            return true;
+        }
+        return UserUtils.isAdmin() || Objects.equals(template.getAuthorId(), UserUtils.getCurrentUserId());
+    }
+
+    private void requireAccessibleComment(Long commentId) {
+        TemplateComment comment = templateCommentMapper.selectById(commentId);
+        if (comment == null) {
+            throw new BizException("评论不存在或无权访问");
+        }
+        requireAccessibleTemplate(comment.getTemplateId());
     }
 
     /**

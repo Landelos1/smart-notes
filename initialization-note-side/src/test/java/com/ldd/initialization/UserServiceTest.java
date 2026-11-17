@@ -57,32 +57,6 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("测试更新用户信息")
-    void testUpdateUser() {
-        Long userId = 1L;
-        try {
-            User user = userService.getUserInfo(userId);
-            String originalUsername = user.getUsername();
-            
-            // 更新用户名
-            user.setUsername("测试用户名_" + System.currentTimeMillis());
-            userService.updateUser(user);
-            
-            // 验证更新成功
-            User updatedUser = userService.getUserInfo(userId);
-            Assertions.assertNotEquals(originalUsername, updatedUser.getUsername());
-            Assertions.assertNotNull(updatedUser.getUpdateTime());
-            
-            // 恢复原始用户名
-            user.setUsername(originalUsername);
-            userService.updateUser(user);
-        } catch (BizException e) {
-            // 如果用户不存在，跳过测试
-            System.out.println("跳过测试：" + e.getMessage());
-        }
-    }
-
-    @Test
     @DisplayName("测试登录 - 手机号不存在")
     void testLoginWithInvalidPhone() {
         String nonExistentPhone = "19999999999";

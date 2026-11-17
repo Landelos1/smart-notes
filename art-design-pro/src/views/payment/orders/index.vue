@@ -5,19 +5,19 @@
 
     <div class="order-stats">
       <div class="stat-card">
-        <div class="stat-label">订单总数</div>
+        <div class="stat-label">符合筛选的订单</div>
         <div class="stat-value">{{ summary.total }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">已支付</div>
+        <div class="stat-label">本页已支付</div>
         <div class="stat-value">{{ summary.paid }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">待支付</div>
+        <div class="stat-label">本页待支付</div>
         <div class="stat-value">{{ summary.pending }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">累计金额</div>
+        <div class="stat-label">本页实付金额</div>
         <div class="stat-value">¥ {{ summary.totalAmount }}</div>
       </div>
     </div>
@@ -203,7 +203,9 @@
     const total = pagination.total || data.value.length
     const paid = data.value.filter((item) => item.status === 1).length
     const pending = data.value.filter((item) => item.status === 0).length
-    const totalAmount = data.value.reduce((acc, item) => acc + Number(item.amount || 0), 0)
+    const totalAmount = data.value
+      .filter((item) => item.status === 1)
+      .reduce((acc, item) => acc + Number(item.amount || 0), 0)
     return {
       total,
       paid,

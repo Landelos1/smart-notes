@@ -18,6 +18,9 @@ public class TemplateSearchDTO {
      */
     private String keyword;
 
+    /** 管理端按真实发布状态筛选。 */
+    private Integer status;
+
     /**
      * 页码（从1开始）
      */

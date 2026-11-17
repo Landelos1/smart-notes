@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button.vue'
 import { getFilePreviewData } from '@/api/personalKnowledge'
 import * as pdfjsLib from 'pdfjs-dist'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import VueOfficeDocx from '@vue-office/docx'
 import VueOfficeExcel from '@vue-office/excel'
 import VueOfficePptx from '@vue-office/pptx'
@@ -218,7 +219,7 @@ function loadMarkdown(arrayBuffer: ArrayBuffer) {
   try {
     const decoder = new TextDecoder('utf-8')
     const md = decoder.decode(arrayBuffer)
-    markdownHtmlContent.value = marked.parse(md) as unknown as string
+    markdownHtmlContent.value = DOMPurify.sanitize(marked.parse(md) as string)
   } catch (err) {
     console.error('Markdown 文件加载失败:', err)
     throw new Error('Markdown 文件加载失败')

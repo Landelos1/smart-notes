@@ -1,6 +1,9 @@
 <!-- 表格按钮 -->
 <template>
-  <div
+  <button
+    type="button"
+    :aria-label="buttonLabel"
+    :title="buttonLabel"
     :class="[
       'inline-flex items-center justify-center min-w-8 h-8 px-2.5 mr-2.5 text-sm c-p rounded-md align-middle',
       buttonClass
@@ -9,7 +12,7 @@
     @click="handleClick"
   >
     <ArtSvgIcon :icon="iconContent" />
-  </div>
+  </button>
 </template>
 
 <script setup lang="ts">
@@ -26,9 +29,15 @@
     iconColor?: string
     /** 按钮背景色 */
     buttonBgColor?: string
+    /** 操作说明，供图标提示和键盘辅助使用 */
+    label?: string
   }
 
   const props = withDefaults(defineProps<Props>(), {})
+
+  const buttonLabel = computed(() => props.label || ({
+    add: '新增', edit: '编辑', delete: '删除', view: '查看', more: '更多'
+  }[props.type || 'more']))
 
   const emit = defineEmits<{
     (e: 'click'): void

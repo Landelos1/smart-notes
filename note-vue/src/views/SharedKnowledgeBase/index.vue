@@ -11,6 +11,7 @@ import {
   Lock, Globe, ArrowLeft, Send, Square, Bot, Sparkles, LogOut, UserPlus, Share2, Copy, Check, Edit2, Pen
 } from 'lucide-vue-next'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import FilePreviewModal from '@/components/common/FilePreviewModal.vue'
 import type { SharedKnowledgeBase, KnowledgeBaseFile, KnowledgeBaseMember, ChatMessage, KbInvitation } from '@/types/note'
 import { getUserInfo } from '@/api/auth'
@@ -882,7 +883,7 @@ function formatFileSize(bytes: number) {
 }
 
 function renderMarkdown(content: string) {
-  return marked.parse(content || '') as string
+  return DOMPurify.sanitize(marked.parse(content || '') as string)
 }
 
 // AI 聊天

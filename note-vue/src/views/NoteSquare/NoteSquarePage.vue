@@ -1558,7 +1558,7 @@ watch([aiMessages, showAIChat], async () => {
                   : 'bg-gray-100 text-gray-800 border border-gray-200'
               ]"
             >
-              <div v-if="msg.role === 'ai'" class="whitespace-pre-wrap markdown-content" v-html="msg.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')"></div>
+              <div v-if="msg.role === 'ai'" class="whitespace-pre-wrap markdown-content" v-html="DOMPurify.sanitize(marked.parse(msg.content) as string)"></div>
               <span v-else>{{ msg.content }}</span>
             </div>
           </div>

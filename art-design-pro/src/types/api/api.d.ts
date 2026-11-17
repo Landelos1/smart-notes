@@ -168,6 +168,8 @@ declare namespace Api {
       avatarUrl?: string
       realName?: string
       gender?: number
+      birthDate?: string
+      lastLoginTime?: string
       status?: number
       createTime?: string
       updateTime?: string

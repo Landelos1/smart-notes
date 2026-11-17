@@ -38,9 +38,11 @@ public interface PaymentService {
      * 查询订单状态
      *
      * @param orderNo 订单编号
+     * @param requesterId 当前查询用户
+     * @param admin 是否管理员
      * @return 订单信息
      */
-    OrderVO queryOrderStatus(String orderNo);
+    OrderVO queryOrderStatus(String orderNo, Long requesterId, boolean admin);
 
     /**
      * 获取用户订单列表

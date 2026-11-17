@@ -21,12 +21,14 @@ public class AdminUserUpdateDTO {
     /**
      * 性别 0-未设置 1-男 2-女
      */
+    @Min(0)
+    @Max(2)
     private Integer gender;
 
     /**
      * 新密码（可选）
      */
-    @Pattern(regexp = "^.{0,20}$", message = "密码长度不能超过20位")
+    @Pattern(regexp = "^(.{6,20})?$", message = "密码长度为6到20位")
     private String password;
 
     /**
@@ -39,6 +41,8 @@ public class AdminUserUpdateDTO {
     /**
      * 状态 0-禁用 1-启用 2-待审核
      */
+    @Min(0)
+    @Max(2)
     private Integer status;
 
     /**

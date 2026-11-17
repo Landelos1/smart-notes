@@ -1,6 +1,7 @@
 <!-- 文章列表页面 -->
 <template>
   <div class="page-content !mb-5 art-full-height">
+    <p class="mb-3 text-sm text-g-600">管理已发布到笔记广场的内容。下线会移出广场，作者的原始笔记仍可使用。</p>
     <ArtSearchBar v-model="searchParams" :items="searchFormItems" @search="handleSearch" @reset="handleReset" />
 
     <ElCard class="art-table-card" shadow="never">
@@ -22,8 +23,6 @@
               :auto-index="true"
               button-text="导出"
             />
-
-            <ElButton @click="clearData" plain v-ripple> 清空数据 </ElButton>
 
             <ElButton
               @click="handleBatchUnpublish"
@@ -157,7 +156,6 @@
     refreshData,
     refreshRemove,
     refreshUpdate,
-    clearData,
     resetColumns
   } = useTable({
     core: {

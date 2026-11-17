@@ -7,7 +7,7 @@
           <img class="absolute top-0 left-0 w-full h-50 object-cover" src="@imgs/user/bg.webp" />
           <img
             class="relative z-10 w-20 h-20 mt-30 mx-auto object-cover border-2 border-white rounded-full"
-            src="@imgs/user/avatar.webp"
+            :src="avatarUrl || defaultAvatar" @error="avatarUrl = defaultAvatar"
           />
           <h2 class="mt-5 text-xl font-normal">{{ userInfo.userName }}</h2>
           <p class="mt-5 text-sm">{{ form.realName || '未填写真实姓名' }}</p>
@@ -49,7 +49,7 @@
                 <ElInput v-model="form.userName" :disabled="!isEdit" />
               </ElFormItem>
               <ElFormItem label="手机号" prop="phone" class="ml-5">
-                <ElInput v-model="form.phone" :disabled="!isEdit" />
+                <ElInput v-model="form.phone" disabled />
               </ElFormItem>
             </ElRow>
 
@@ -57,14 +57,11 @@
               <ElFormItem label="真实姓名" prop="realName">
                 <ElInput v-model="form.realName" :disabled="!isEdit" />
               </ElFormItem>
-              <ElFormItem label="身份证号" prop="idCard" class="ml-5">
-                <ElInput v-model="form.idCard" :disabled="!isEdit" />
-              </ElFormItem>
             </ElRow>
 
             <ElRow>
               <ElFormItem label="性别" prop="gender">
-                <ElSelect v-model="form.gender" placeholder="Select" :disabled="!isEdit">
+                <ElSelect v-model="form.gender" placeholder="请选择性别" :disabled="!isEdit">
                   <ElOption
                     v-for="item in genderOptions"
                     :key="item.value"
@@ -77,6 +74,8 @@
                 <ElDatePicker
                   v-model="form.birthDate"
                   type="date"
+                  value-format="YYYY-MM-DD"
+                  :disabled-date="(date: Date) => date.getTime() > Date.now()"
                   placeholder="选择日期"
                   :disabled="!isEdit"
                   class="w-full"
@@ -85,7 +84,8 @@
             </ElRow>
 
             <div class="flex-c justify-end [&_.el-button]:!w-27.5">
-              <ElButton type="primary" class="w-22.5" v-ripple @click="edit">
+              <ElButton v-if="isEdit" :disabled="saving" @click="cancelEdit">取消</ElButton>
+              <ElButton type="primary" :loading="saving" :disabled="loadingProfile" class="w-22.5" v-ripple @click="edit">
                 {{ isEdit ? '保存' : '编辑' }}
               </ElButton>
             </div>
@@ -95,10 +95,11 @@
         <div class="art-card-sm my-5">
           <h1 class="p-4 text-xl font-normal border-b border-g-300">更改密码</h1>
 
-          <ElForm :model="pwdForm" class="box-border p-5" label-width="86px" label-position="top">
-            <ElFormItem label="当前密码" prop="password">
+          <p class="px-5 pt-4 text-sm text-g-600">修改成功后需重新登录；请勿与其他网站共用密码。</p>
+          <ElForm ref="passwordFormRef" :rules="passwordRules" :model="pwdForm" class="box-border p-5" label-width="86px" label-position="top">
+            <ElFormItem label="当前密码" prop="currentPassword">
               <ElInput
-                v-model="pwdForm.password"
+                v-model="pwdForm.currentPassword"
                 type="password"
                 :disabled="!isEditPwd"
                 show-password
@@ -124,7 +125,8 @@
             </ElFormItem>
 
             <div class="flex-c justify-end [&_.el-button]:!w-27.5">
-              <ElButton type="primary" class="w-22.5" v-ripple @click="editPwd">
+              <ElButton v-if="isEditPwd" :disabled="savingPassword" @click="cancelPassword">取消</ElButton>
+              <ElButton type="primary" :loading="savingPassword" class="w-22.5" v-ripple @click="editPwd">
                 {{ isEditPwd ? '保存' : '编辑' }}
               </ElButton>
             </div>
@@ -137,111 +139,86 @@
 
 <script setup lang="ts">
   import { useUserStore } from '@/store/modules/user'
+  import { fetchUserProfile, fetchUpdateUserProfile, fetchGetUserInfo, fetchChangePassword } from '@/api/auth'
+  import { ElMessage } from 'element-plus'
   import type { FormInstance, FormRules } from 'element-plus'
+  import defaultAvatar from '@imgs/user/avatar.webp'
 
   defineOptions({ name: 'UserCenter' })
 
   const userStore = useUserStore()
   const userInfo = computed(() => userStore.getUserInfo)
-
+  const avatarUrl = ref('')
   const isEdit = ref(false)
   const isEditPwd = ref(false)
-  const date = ref('')
+  const saving = ref(false)
+  const savingPassword = ref(false)
+  const loadingProfile = ref(false)
   const ruleFormRef = ref<FormInstance>()
-
-  /**
-   * 用户信息表单
-   */
-  const form = reactive({
-    userName: userInfo.value.userName || 'admin',
-    phone: userInfo.value.phone || '18888888888',
-    realName: '张三',
-    idCard: '440301199001011234',
-    gender: '1',
-    birthDate: '1990-01-01',
-    status: 1,
-    lastLoginTime: '2026-01-14 10:18:00'
-  })
-
-  /**
-   * 密码修改表单
-   */
-  const pwdForm = reactive({
-    password: '123456',
-    newPassword: '123456',
-    confirmPassword: '123456'
-  })
-
-  /**
-   * 表单验证规则
-   */
-  const rules = reactive<FormRules>({
-    userName: [
-      { required: true, message: '请输入用户名', trigger: 'blur' },
-      { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-    ],
-    phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
-    realName: [
-      { required: true, message: '请输入真实姓名', trigger: 'blur' },
-      { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
-    ],
-    idCard: [{ required: true, message: '请输入身份证号', trigger: 'blur' }],
-    gender: [{ required: true, message: '请选择性别', trigger: 'blur' }],
-    birthDate: [{ required: true, message: '请选择出生日期', trigger: 'change' }]
-  })
-
-  /**
-   * 性别选项
-   */
-  const genderOptions = [
-    { value: '1', label: '男' },
-    { value: '2', label: '女' },
-    { value: '0', label: '未知' }
-  ]
-
-  const roleTypeLabel = computed(() => {
-    const roleType = userInfo.value.roleType
-    if (roleType === 1) return '超级管理员'
-    if (roleType === 2) return '管理员'
-    return '普通用户'
-  })
-
-  const statusLabel = computed(() => (form.status === 1 ? '启用' : '禁用'))
-
+  const passwordFormRef = ref<FormInstance>()
+  const form = reactive({ userName: '', phone: '', realName: '', gender: 0,
+    birthDate: '' as string | null, status: 1, lastLoginTime: '' })
+  const pwdForm = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const rules: FormRules = {
+    userName: [{ required: true, whitespace: true, message: '请输入用户名', trigger: 'blur' },
+      { max: 50, message: '用户名不能超过50字', trigger: 'blur' }],
+    realName: [{ max: 50, message: '姓名不能超过50字', trigger: 'blur' }]
+  }
+  const passwordRules: FormRules = {
+    currentPassword: [{ required: true, message: '请输入当前密码', trigger: 'blur' }],
+    newPassword: [{ required: true, message: '请输入新密码', trigger: 'blur' },
+      { min: 6, max: 20, message: '新密码长度为6到20位', trigger: 'blur' }],
+    confirmPassword: [{ required: true, message: '请再次输入新密码', trigger: 'blur' },
+      { validator: (_rule, value, callback) => callback(value === pwdForm.newPassword ? undefined : new Error('两次密码不一致')), trigger: 'blur' }]
+  }
+  const genderOptions = [{ value: 0, label: '未设置' }, { value: 1, label: '男' }, { value: 2, label: '女' }]
+  const roleTypeLabel = computed(() => userInfo.value.roleType === 2 ? '管理员' : '普通用户')
+  const statusLabel = computed(() => ({ 0: '禁用', 1: '启用', 2: '待审核' })[form.status] || '未知')
   const formatDate = (value?: string) => {
     if (!value) return '-'
-    return value
+    const date = new Date(value)
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString('zh-CN', { hour12: false })
   }
-
-  onMounted(() => {
-    getDate()
-  })
-
-  /**
-   * 根据当前时间获取问候语
-   */
-  const getDate = () => {
-    const h = new Date().getHours()
-
-    if (h >= 6 && h < 9) date.value = '早上好'
-    else if (h >= 9 && h < 11) date.value = '上午好'
-    else if (h >= 11 && h < 13) date.value = '中午好'
-    else if (h >= 13 && h < 18) date.value = '下午好'
-    else if (h >= 18 && h < 24) date.value = '晚上好'
-    else date.value = '很晚了，早点睡'
+  const loadProfile = async () => {
+    loadingProfile.value = true
+    try {
+      const profile = await fetchUserProfile()
+      Object.assign(form, { userName: profile.username || '', phone: profile.phone || '',
+        realName: profile.realName || '', gender: profile.gender ?? 0,
+        birthDate: profile.birthDate?.slice(0, 10) || null, status: profile.status ?? 0,
+        lastLoginTime: profile.lastLoginTime || '' })
+      avatarUrl.value = profile.avatarUrl || ''
+    } finally { loadingProfile.value = false }
   }
-
-  /**
-   * 切换用户信息编辑状态
-   */
-  const edit = () => {
-    isEdit.value = !isEdit.value
+  const cancelEdit = async () => { isEdit.value = false; await loadProfile() }
+  const edit = async () => {
+    if (!isEdit.value) { isEdit.value = true; return }
+    if (!(await ruleFormRef.value?.validate().catch(() => false))) return
+    saving.value = true
+    try {
+      await fetchUpdateUserProfile({ username: form.userName.trim(), realName: form.realName,
+        gender: form.gender, birthDate: form.birthDate || null })
+      userStore.setUserInfo(await fetchGetUserInfo())
+      isEdit.value = false
+      ElMessage.success('个人资料已保存')
+      await loadProfile()
+    } finally { saving.value = false }
   }
-
-  /**
-   * 切换密码编辑状态
-   */
-  const editPwd = () => {
-    isEditPwd.value = !isEditPwd.value
+  const cancelPassword = () => {
+    isEditPwd.value = false
+    Object.assign(pwdForm, { currentPassword: '', newPassword: '', confirmPassword: '' })
+    passwordFormRef.value?.clearValidate()
   }
+  const editPwd = async () => {
+    if (!isEditPwd.value) { isEditPwd.value = true; return }
+    if (!(await passwordFormRef.value?.validate().catch(() => false))) return
+    savingPassword.value = true
+    try {
+      await fetchChangePassword({ currentPassword: pwdForm.currentPassword, newPassword: pwdForm.newPassword })
+      cancelPassword()
+      ElMessage.success('密码已修改，请重新登录')
+      userStore.logOut()
+    } finally { savingPassword.value = false }
+  }
+  onMounted(loadProfile)
 </script>

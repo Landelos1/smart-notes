@@ -52,8 +52,8 @@
         </template>
 
         <template #isPublic="{ row }">
-          <ElTag :type="row.isPublic ? 'success' : 'info'" effect="plain">
-            {{ row.isPublic ? '公开' : '私有' }}
+          <ElTag :type="isEffectivelyPublic(row) ? 'success' : 'info'" effect="plain">
+            {{ isEffectivelyPublic(row) ? '公开可访问' : '仅作者与管理员' }}
           </ElTag>
         </template>
 
@@ -70,6 +70,7 @@
         v-model:visible="publishDialogVisible"
         :type="dialogType"
         :template-data="currentTemplateData"
+        :submitting="templateSubmitting"
         @submit="handleDialogSubmit"
       />
 
@@ -115,6 +116,7 @@
   type TemplateRow = Api.Template.TemplateVO
 
   const publishDialogVisible = ref(false)
+  const templateSubmitting = ref(false)
   const dialogType = ref<'add' | 'edit'>('add')
   const currentTemplateData = ref<Partial<TemplateRow>>({})
 
@@ -159,16 +161,21 @@
       1: '已发布',
       2: '已下架'
     }
-    return map[status ?? 1] || '已发布'
+    return status == null ? '未知状态' : map[status] || '未知状态'
   }
 
   const getStatusType = (status?: number) => {
     const map: Record<number, any> = {
       0: 'info',
       1: 'success',
-      2: 'warning'
+      2: 'warning',
+      [-1]: 'danger'
     }
-    return map[status ?? 1] || 'success'
+    return map[status ?? -1] || 'danger'
+  }
+
+  const isEffectivelyPublic = (row: Pick<TemplateRow, 'isPublic' | 'status'>) => {
+    return row.isPublic === true && row.status === 1
   }
 
   const formatDateTime = (value?: string) => {
@@ -215,7 +222,7 @@
         { prop: 'downloads', label: '下载', width: 66 },
         { prop: 'views', label: '浏览', width: 66 },
         { prop: 'rating', label: '评分', width: 66 },
-        { prop: 'isPublic', label: '可见', width: 76, useSlot: true, slotName: 'isPublic' },
+        { prop: 'isPublic', label: '有效可见范围', width: 150, useSlot: true, slotName: 'isPublic' },
         { prop: 'status', label: '状态', width: 92, useSlot: true, slotName: 'status' },
         {
           prop: 'createTime',
@@ -244,14 +251,23 @@
   }
 
   const handleDialogSubmit = async (payload: Api.Template.TemplateCreateDTO) => {
-    if (dialogType.value === 'add') {
-      await fetchCreateTemplate(payload)
-    } else {
-      const id = currentTemplateData.value.id
-      if (!id) return
-      await fetchUpdateTemplate(id, payload)
+    if (templateSubmitting.value) return
+    templateSubmitting.value = true
+    try {
+      if (dialogType.value === 'add') {
+        await fetchCreateTemplate(payload)
+      } else {
+        const id = currentTemplateData.value.id
+        if (!id) return
+        await fetchUpdateTemplate(id, payload)
+      }
+      publishDialogVisible.value = false
+      refreshData()
+    } catch {
+      // 请求层显示错误；保留表单内容供用户重试。
+    } finally {
+      templateSubmitting.value = false
     }
-    refreshData()
   }
 
   const handleDelete = (row: TemplateRow) => {

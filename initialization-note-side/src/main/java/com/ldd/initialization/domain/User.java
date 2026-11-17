@@ -36,7 +36,7 @@ public class User implements Serializable {
     private String password;
 
     /**
-     * 用户角色 1-求职者 2-招聘者 3-管理员
+     * 用户角色 1-普通用户 2-管理员
      */
     @TableField("role_type")
     private Integer roleType;

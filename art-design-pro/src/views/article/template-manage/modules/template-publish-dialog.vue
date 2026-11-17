@@ -5,6 +5,8 @@
     width="55%"
     align-center
     :close-on-click-modal="false"
+    :close-on-press-escape="!submitting"
+    :show-close="!submitting"
   >
     <div class="max-h-150 overflow-y-auto">
       <div class="max-w-250 mx-auto">
@@ -90,7 +92,7 @@
 
     <template #footer>
       <div class="dialog-footer">
-        <ElButton @click="dialogVisible = false">取消</ElButton>
+        <ElButton @click="dialogVisible = false" :disabled="submitting">取消</ElButton>
         <ElButton type="primary" @click="handleSubmit" :loading="submitting">
           {{ dialogType === 'add' ? '发布' : '保存' }}
         </ElButton>
@@ -108,6 +110,7 @@
     visible: boolean
     type: 'add' | 'edit'
     templateData?: Partial<Api.Template.TemplateVO>
+    submitting?: boolean
   }
 
   interface Emits {
@@ -127,7 +130,6 @@
 
   const dialogType = computed(() => props.type)
 
-  const submitting = ref(false)
   const tagsInput = ref('')
 
   const apiBaseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
@@ -234,15 +236,11 @@
       return
     }
 
-    submitting.value = true
-    try {
-      emit('submit', {
-        ...formData,
-        tags: formData.tags || []
-      })
-      dialogVisible.value = false
-    } finally {
-      submitting.value = false
-    }
+    if (props.submitting) return
+    addTag()
+    emit('submit', {
+      ...formData,
+      tags: formData.tags || []
+    })
   }
 </script>

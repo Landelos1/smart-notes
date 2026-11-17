@@ -153,9 +153,9 @@ public class NoteSquareServiceImpl implements NoteSquareService {
     public PageResult<NoteSquareVO> getSquareNotes(NoteSquareSearchDTO searchDTO, Long userId) {
         Page<NoteSquareVO> page = new Page<>(searchDTO.getPage(), searchDTO.getSize());
         List<String> keywords = splitKeywords(searchDTO.getKeyword());
-        CategorySnapshot categories = StringUtils.hasText(searchDTO.getCategory()) || categorySnapshot != null
-                ? getCategorySnapshot()
-                : null;
+        // 普通列表使用已有快照；浏览、点赞等请求不应等待重新调用分类模型。
+        CategorySnapshot categories = StringUtils.hasText(searchDTO.getCategory())
+                ? getCategorySnapshot() : categorySnapshot;
         List<Long> categoryNoteIds = null;
         if (StringUtils.hasText(searchDTO.getCategory())) {
             if (categories == null) categories = getCategorySnapshot();

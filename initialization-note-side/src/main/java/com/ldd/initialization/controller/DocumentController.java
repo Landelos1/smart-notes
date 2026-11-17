@@ -1,7 +1,7 @@
 package com.ldd.initialization.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import cn.dev33.satoken.annotation.SaIgnore;
+import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -358,7 +358,7 @@ public class DocumentController {
      * 完整的向量化诊断接口
      * 依次测试：数据库连接 -> EmbeddingModel -> 完整向量化流程
      */
-    @SaIgnore
+    @SaCheckRole("ADMIN")
     @GetMapping("/test-vector")
     public Result<Map<String, Object>> testVectorConnection() {
         Map<String, Object> result = new HashMap<>();
@@ -431,7 +431,7 @@ public class DocumentController {
     /**
      * 测试文档解析和向量化（完整流程测试）
      */
-    @SaIgnore
+    @SaCheckRole("ADMIN")
     @PostMapping("/test-parse")
     public Result<Map<String, Object>> testDocumentParsing(@RequestParam("file") MultipartFile file) {
         try {

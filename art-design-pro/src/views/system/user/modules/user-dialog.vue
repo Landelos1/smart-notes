@@ -47,13 +47,13 @@
           <ElOption label="待审核" :value="2" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="会员状态" prop="memberActive">
+      <ElFormItem v-if="dialogType === 'edit'" label="会员状态" prop="memberActive">
         <ElSelect v-model="formData.memberActive" clearable placeholder="请选择会员状态">
           <ElOption label="有效" :value="true" />
           <ElOption label="无效" :value="false" />
         </ElSelect>
       </ElFormItem>
-      <ElFormItem label="到期时间" prop="memberExpireTime">
+      <ElFormItem v-if="dialogType === 'edit'" label="到期时间" prop="memberExpireTime">
         <ElDatePicker
           v-model="formData.memberExpireTime"
           type="datetime"
@@ -125,6 +125,15 @@
     ],
     roleType: [{ required: true, message: '请选择角色', trigger: 'change' }],
     status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+    memberExpireTime: [{
+      validator: (_rule, value, callback) => {
+        if (formData.memberActive === true && (!value || new Date(value).getTime() <= Date.now())) {
+          return callback(new Error('有效会员必须设置晚于当前时间的到期时间'))
+        }
+        callback()
+      },
+      trigger: 'change'
+    }],
     password: [
       {
         validator: (_rule, value: string, callback) => {
@@ -134,7 +143,7 @@
             return callback()
           }
           if (!value) return callback()
-          if (value.length > 20) return callback(new Error('密码长度不能超过20位'))
+          if (value.length < 6 || value.length > 20) return callback(new Error('密码长度必须在6-20位'))
           return callback()
         },
         trigger: 'blur'

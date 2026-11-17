@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.ldd.initialization.domain.User;
 import com.ldd.initialization.dto.AdminUserCreateDTO;
 import com.ldd.initialization.dto.AdminUserUpdateDTO;
+import com.ldd.initialization.dto.UserProfileUpdateDTO;
+import com.ldd.initialization.dto.PasswordChangeDTO;
 import com.ldd.initialization.vo.CaptchaVO;
 import com.ldd.initialization.vo.MembershipQuotaVO;
 import com.ldd.initialization.vo.UserInfoVO;
@@ -43,7 +45,9 @@ public interface UserService extends IService<User> {
 
         User getUserInfo(Long userId);
 
-        void updateUser(User user);
+        void updateUserProfile(Long userId, UserProfileUpdateDTO request);
+
+        void changePassword(Long userId, PasswordChangeDTO request);
 
         Page<User> listUsers(int page, int size, Integer roleType, Integer status, Integer gender, String keyword);
 

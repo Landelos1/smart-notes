@@ -35,10 +35,14 @@ public class AdminUserCreateDTO {
     /**
      * 性别 0-未设置 1-男 2-女
      */
+    @Min(value = 0, message = "性别取值不正确")
+    @Max(value = 2, message = "性别取值不正确")
     private Integer gender;
 
     /**
      * 状态 0-禁用 1-启用 2-待审核
      */
+    @Min(value = 0, message = "状态取值不正确")
+    @Max(value = 2, message = "状态取值不正确")
     private Integer status;
 }

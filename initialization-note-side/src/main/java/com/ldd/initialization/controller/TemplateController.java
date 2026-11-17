@@ -35,12 +35,14 @@ public class TemplateController {
     public Result<PageResult<TemplateVO>> searchTemplates(
             @RequestParam(required = false, defaultValue = "all") String category,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Integer status,
             @RequestParam(required = false, defaultValue = "1") Integer page,
             @RequestParam(required = false, defaultValue = "20") Integer pageSize) {
         
         TemplateSearchDTO searchDTO = new TemplateSearchDTO();
         searchDTO.setCategory(category);
         searchDTO.setKeyword(keyword);
+        searchDTO.setStatus(status);
         searchDTO.setPage(page);
         searchDTO.setPageSize(pageSize);
         

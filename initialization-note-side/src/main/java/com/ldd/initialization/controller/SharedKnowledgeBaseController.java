@@ -385,6 +385,9 @@ public class SharedKnowledgeBaseController {
     @GetMapping("/members/{knowledgeBaseId:\\d+}")
     @SaCheckLogin
     public Result<List<KnowledgeBaseMemberVO>> listMembers(@PathVariable Long knowledgeBaseId) {
+        if (!knowledgeBaseService.hasPermission(knowledgeBaseId, StpUtil.getLoginIdAsLong())) {
+            return Result.error("您没有权限查看该知识库成员");
+        }
         List<KnowledgeBaseMemberVO> members = knowledgeBaseMemberMapper.selectMembersByKnowledgeBaseId(knowledgeBaseId);
         return Result.success(members);
     }
@@ -399,8 +402,11 @@ public class SharedKnowledgeBaseController {
      * @return 指定成员的VO信息
      */
     @GetMapping("/member/{userId}/{knowledgeBaseId:\\d+}")
-    // @SaCheckLogin
+    @SaCheckLogin
     public Result<KnowledgeBaseMemberVO> getMemberInfo(@PathVariable Long knowledgeBaseId, @PathVariable Long userId) {
+        if (!knowledgeBaseService.hasPermission(knowledgeBaseId, StpUtil.getLoginIdAsLong())) {
+            return Result.error("您没有权限查看该知识库成员");
+        }
         KnowledgeBaseMemberVO memberInfo = knowledgeBaseMemberMapper.selectMemberInfo(knowledgeBaseId, userId);
         return Result.success(memberInfo);
     }
@@ -409,16 +415,10 @@ public class SharedKnowledgeBaseController {
      * 删除指定成员
      */
     @DeleteMapping("/members/{deleteUserId}/{knowledgeBaseId:\\d+}")
-    // @SaCheckLogin
+    @SaCheckLogin
     public Result<Void> deleteMember(@PathVariable Long knowledgeBaseId, @PathVariable Long deleteUserId) {
         Long userId = StpUtil.getLoginIdAsLong();
-
-        // 验证用户是否有权限访问该知识库
-        if (!knowledgeBaseService.isCreator(knowledgeBaseId, userId)) {
-            return Result.error(new RuntimeException("您没有权限访问该知识库"));
-        }
-        LambdaQueryWrapper<KnowledgeBaseMember> query = new LambdaQueryWrapper<KnowledgeBaseMember>().eq(KnowledgeBaseMember::getKnowledgeBaseId, knowledgeBaseId).eq(KnowledgeBaseMember::getUserId, deleteUserId);
-         knowledgeBaseMemberMapper.delete(query);
+        knowledgeBaseService.removeMember(knowledgeBaseId, deleteUserId, userId);
         return Result.success();
     }
 
@@ -498,4 +498,4 @@ public class SharedKnowledgeBaseController {
         return Result.success();
     }
 
-} 
+}

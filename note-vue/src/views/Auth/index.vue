@@ -36,7 +36,7 @@ const features = [
 ]
 
 function validatePhone(phone) {
-  return /^1[3-9]\d{9}$/.test(phone)
+  return /^1\d{10}$/.test(phone)
 }
 
 function handleChange(field, value) {
@@ -53,7 +53,7 @@ function validateForm() {
   if (!formData.phone) {
     errors.phone = '请输入手机号'
   } else if (!validatePhone(formData.phone)) {
-    errors.phone = '请输入有效的手机号'
+    errors.phone = '请输入11位手机号'
   }
 
   if (!formData.password) {

@@ -72,6 +72,14 @@ public class TemplateVO {
      */
     private LocalDateTime updatedAt;
 
+    /** 是否公开，供管理端展示和编辑真实可见范围。 */
+    private Boolean isPublic;
+
+    /** 0-草稿，1-已发布，2-已下架。 */
+    private Integer status;
+
+    private LocalDateTime createTime;
+
     /**
      * 标签列表
      */

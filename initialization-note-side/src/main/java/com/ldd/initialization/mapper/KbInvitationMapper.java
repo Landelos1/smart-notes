@@ -6,6 +6,7 @@ import com.ldd.initialization.vo.KbInvitationVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -14,6 +15,9 @@ import java.util.List;
  */
 @Mapper
 public interface KbInvitationMapper extends BaseMapper<KbInvitation> {
+
+    @Update("UPDATE t_kb_invitation SET status = 3 WHERE invitee_id = #{userId} AND status = 0 AND expire_time <= CURRENT_TIMESTAMP")
+    int expireInvitations(@Param("userId") Long userId);
 
     /**
      * 查询用户的邀请列表（带分页）
@@ -36,7 +40,7 @@ public interface KbInvitationMapper extends BaseMapper<KbInvitation> {
             "LEFT JOIN \"t_user\" u ON inv.inviter_id = u.id " +
             "WHERE inv.invitee_id = #{userId} " +
             "  AND inv.status = #{status} " +
-            "  AND inv.expire_time > CURRENT_TIMESTAMP " +
+            "  AND (inv.status != 0 OR inv.expire_time > CURRENT_TIMESTAMP) " +
             "ORDER BY inv.invite_time DESC " +
             "LIMIT #{size} OFFSET #{offset}")
     List<KbInvitationVO> selectMyInvitations(@Param("userId") Long userId,
@@ -70,7 +74,7 @@ public interface KbInvitationMapper extends BaseMapper<KbInvitation> {
     @Select("SELECT COUNT(1) FROM t_kb_invitation " +
             "WHERE invitee_id = #{userId} " +
             "  AND status = #{status} " +
-            "  AND expire_time > CURRENT_TIMESTAMP")
+            "  AND (status != 0 OR expire_time > CURRENT_TIMESTAMP)")
     Integer countInvitationsByStatus(@Param("userId") Long userId, 
                                       @Param("status") Integer status);
 }

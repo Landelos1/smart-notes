@@ -85,7 +85,7 @@ public class SharedKnowledgeBaseServiceImpl extends ServiceImpl<SharedKnowledgeB
         knowledgeBase.setUpdateTime(LocalDateTimeUtil.now());
 
         if (StrUtil.isBlank(createDTO.getCoverUrl())) {
-            knowledgeBase.setCoverUrl("https://bpic.588ku.com/back_origin_min_pic/20/06/21/53cfa4e4505d62bbdce784b2ce6c4be8.jpg");
+            knowledgeBase.setCoverUrl(null); // 由页面显示本地占位封面
         }
         // 如果设置了密码，进行加密
         if (StrUtil.isNotBlank(createDTO.getPassword())) {
@@ -411,4 +411,4 @@ public class SharedKnowledgeBaseServiceImpl extends ServiceImpl<SharedKnowledgeB
 
         log.info("用户 {} 邀请 {} 加入知识库 {}", inviterId, invitee.getUsername(), knowledgeBaseId);
     }
-} 
+}

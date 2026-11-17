@@ -14,6 +14,7 @@
   import '@/assets/styles/custom/one-dark-pro.scss'
   import { useCommon } from '@/hooks/core/useCommon'
   import { fetchGetNoteDetail } from '@/api/note'
+  import MarkdownIt from 'markdown-it'
 
   defineOptions({ name: 'ArticleDetail' })
 
@@ -23,6 +24,7 @@
   const articleHtml = shallowRef('')
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const markdown = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
   const getArticleDetail = async () => {
     if (!articleId.value) return
@@ -33,7 +35,7 @@
     try {
       const data = await fetchGetNoteDetail(articleId.value)
       articleTitle.value = data.title
-      articleHtml.value = data.contentHtml || data.contentMd || ''
+      articleHtml.value = markdown.render(data.contentMd || '')
     } catch (err) {
       error.value = '文章加载失败'
       console.error('获取文章详情失败:', err)

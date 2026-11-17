@@ -17,6 +17,8 @@ import com.ldd.initialization.domain.User;
 import com.ldd.initialization.domain.UserMembership;
 import com.ldd.initialization.dto.AdminUserCreateDTO;
 import com.ldd.initialization.dto.AdminUserUpdateDTO;
+import com.ldd.initialization.dto.UserProfileUpdateDTO;
+import com.ldd.initialization.dto.PasswordChangeDTO;
 import com.ldd.initialization.enums.RoleType;
 import com.ldd.initialization.enums.StatusEnum;
 import com.ldd.initialization.mapper.SharedKnowledgeBaseMapper;
@@ -33,6 +35,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -208,7 +211,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             if (m != null) {
                 user.setMemberExpireTime(m.getExpireTime());
                 user.setMemberLevelName("专业会员");
-                boolean active = m.getExpireTime() != null && m.getExpireTime().after(new Date());
+                boolean active = !Boolean.FALSE.equals(m.getIsActive()) && m.getExpireTime() != null
+                        && m.getExpireTime().after(new Date());
                 user.setIsMember(active);
             } else {
                 user.setIsMember(false);
@@ -220,11 +224,44 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
-    public void updateUser(User user) {
-        log.info("[用户信息] 更新用户信息, 用户ID: {}", user.getId());
-        user.setUpdateTime(new Date());
-        updateById(user);
-        log.info("[用户信息] 用户信息更新成功, 用户ID: {}", user.getId());
+    public void updateUserProfile(Long userId, UserProfileUpdateDTO request) {
+        User existing = getById(userId);
+        if (existing == null) {
+            throw new BizException("用户不存在");
+        }
+        if (request.getPhone() != null && !request.getPhone().equals(existing.getPhone())
+                && count(new QueryWrapper<User>().eq("phone", request.getPhone())
+                        .eq("role_type", existing.getRoleType()).ne("id", userId)) > 0) {
+            throw new BizException("该手机号已注册此类型账号");
+        }
+        // 显式构造更新列，避免实体绑定造成提权或覆盖并发更新的账号状态。
+        LambdaUpdateWrapper<User> update = new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId)
+                .set(User::getUpdateTime, new Date());
+        if (request.getUsername() != null) update.set(User::getUsername, request.getUsername().trim());
+        if (request.getPhone() != null) update.set(User::getPhone, request.getPhone());
+        if (request.getAvatarUrl() != null) update.set(User::getAvatarUrl, request.getAvatarUrl());
+        if (request.getRealName() != null) update.set(User::getRealName, request.getRealName().trim());
+        if (request.getGender() != null) update.set(User::getGender, request.getGender());
+        if (request.isBirthDateProvided()) {
+            update.set(User::getBirthDate, request.getBirthDate() == null ? null
+                    : java.sql.Date.valueOf(request.getBirthDate()));
+        }
+        if (!update(null, update)) throw new BizException("资料保存失败，请重试");
+    }
+
+    @Override
+    public void changePassword(Long userId, PasswordChangeDTO request) {
+        User user = getById(userId);
+        if (user == null || !Objects.equals(user.getPassword(), DigestUtil.sha256Hex(request.getCurrentPassword()))) {
+            throw new BizException("当前密码不正确");
+        }
+        boolean updated = update(null, new LambdaUpdateWrapper<User>()
+                .eq(User::getId, userId).eq(User::getPassword, user.getPassword())
+                .set(User::getPassword, DigestUtil.sha256Hex(request.getNewPassword()))
+                .set(User::getUpdateTime, new Date()));
+        if (!updated) throw new BizException("密码已变更，请重新登录后重试");
+        StpUtil.logout(userId);
     }
 
     @Override
@@ -278,9 +315,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
                         user.setMemberExpireTime(membership.getExpireTime());
                         user.setMemberLevelName("专业会员");
                         Boolean active = membership.getIsActive();
-                        if (active == null) {
-                            active = membership.getExpireTime() != null && membership.getExpireTime().after(now);
-                        }
+                        active = !Boolean.FALSE.equals(active) && membership.getExpireTime() != null
+                                && membership.getExpireTime().after(now);
                         user.setIsMember(active);
                     } else {
                         user.setIsMember(false);
@@ -293,10 +329,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
     @Override
     public void batchDisableUsers(List<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) return;
         update(null, new LambdaUpdateWrapper<User>()
                 .in(User::getId, userIds)
                 .set(User::getStatus, StatusEnum.DISABLED.getCode())
                 .set(User::getUpdateTime, new Date()));
+        userIds.forEach(StpUtil::logout);
     }
 
     @Override
@@ -330,6 +368,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     }
 
     @Override
+    @Transactional
     public void updateUserByAdmin(Long userId, AdminUserUpdateDTO request) {
         if (userId == null) {
             throw new BizException("用户ID不能为空");
@@ -343,6 +382,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BizException("用户不存在");
         }
 
+        boolean invalidateSessions = (request.getRoleType() != null && !Objects.equals(request.getRoleType(), user.getRoleType()))
+                || (request.getStatus() != null && !Objects.equals(request.getStatus(), user.getStatus()))
+                || StrUtil.isNotBlank(request.getPassword());
         if (request.getRoleType() != null && !Objects.equals(request.getRoleType(), user.getRoleType())
                 && count(new QueryWrapper<User>().eq("phone", user.getPhone())
                         .eq("role_type", request.getRoleType()).ne("id", userId)) > 0) {
@@ -375,6 +417,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
 
         user.setUpdateTime(new Date());
         updateById(user);
+        if (invalidateSessions) StpUtil.logout(userId);
     }
 
     private void applyMembershipUpdate(Long userId, AdminUserUpdateDTO request) {
@@ -392,6 +435,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             membership = new UserMembership();
             membership.setUserId(userId);
             membership.setCreateTime(now);
+            membership.setAiCallQuota(50);
+            membership.setAiCallUsed(0);
+            membership.setLastAiResetTime(now);
+            membership.setKbQuota(3);
+            membership.setIsActive(false);
+            membership.setKbUsed((int) Math.min(Integer.MAX_VALUE,
+                    sharedKnowledgeBaseMapper.countCreatedByUserId(userId)));
         }
 
         if (request.getMemberExpireTime() != null) {
@@ -401,6 +451,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             membership.setIsActive(request.getMemberActive());
         } else if (request.getMemberExpireTime() != null) {
             membership.setIsActive(request.getMemberExpireTime().after(now));
+        }
+
+        if (Boolean.TRUE.equals(membership.getIsActive())
+                && (membership.getExpireTime() == null || !membership.getExpireTime().after(now))) {
+            throw new BizException("有效会员必须设置晚于当前时间的到期时间");
         }
 
         membership.setUpdateTime(now);
@@ -426,6 +481,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!updated) {
             throw new BizException("用户不存在或更新失败");
         }
+        StpUtil.logout(userId);
     }
 
     @Override
@@ -438,6 +494,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (!removed) {
             throw new BizException("用户不存在或删除失败");
         }
+        StpUtil.logout(userId);
     }
 
     @Override

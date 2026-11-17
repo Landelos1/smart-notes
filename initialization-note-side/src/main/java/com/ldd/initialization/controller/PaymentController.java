@@ -16,8 +16,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +37,9 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
     /**
      * 获取会员套餐列表
@@ -81,10 +89,15 @@ public class PaymentController {
      */
     @SaIgnore
     @GetMapping("/alipay/return")
-    public Result<OrderVO> alipayReturn(@RequestParam("out_trade_no") String orderNo) {
-        // 同步回调只做查询，实际支付结果以异步通知为准
-        OrderVO order = paymentService.queryOrderStatus(orderNo);
-        return Result.success(order);
+    public ResponseEntity<Void> alipayReturn(@RequestParam("out_trade_no") String orderNo) {
+        URI resultPage = UriComponentsBuilder
+                .fromUriString(frontendUrl.replaceAll("/+$", ""))
+                .path("/payment/result")
+                .queryParam("out_trade_no", orderNo)
+                .build()
+                .encode()
+                .toUri();
+        return ResponseEntity.status(HttpStatus.FOUND).location(resultPage).build();
     }
 
     /**
@@ -93,7 +106,9 @@ public class PaymentController {
     @SaCheckLogin
     @GetMapping("/order/{orderNo}")
     public Result<OrderVO> queryOrder(@PathVariable String orderNo) {
-        OrderVO order = paymentService.queryOrderStatus(orderNo);
+        Long userId = StpUtil.getLoginIdAsLong();
+        boolean admin = StpUtil.hasRole("ADMIN");
+        OrderVO order = paymentService.queryOrderStatus(orderNo, userId, admin);
         return Result.success(order);
     }
 

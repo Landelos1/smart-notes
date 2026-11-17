@@ -1,7 +1,7 @@
 package com.ldd.initialization.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import cn.dev33.satoken.annotation.SaIgnore;
+import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import com.ldd.initialization.config.ChatStreamConfig;
 import com.ldd.initialization.domain.UserAISettings;
@@ -430,7 +430,7 @@ public class ChatController {
      * 流式聊天接口 - 快速版本（无速率控制）
      * 提供给需要快速响应的场景使用
      */
-    @SaIgnore
+    @SaCheckRole("ADMIN")
     @PostMapping(value = "/stream/local", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chatStreamFast(@RequestParam("modelName") String modelName, @RequestParam("memoryId") String memoryId,
                                 @RequestParam("message") String message) {

@@ -228,7 +228,11 @@
     backTop?: boolean
   }
 
-  const YEAR_OPTIONS = ['All', '2024', '2023', '2022', '2021', '2020', '2019']
+  const YEAR_OPTIONS = computed(() => [
+    { label: '全部年份', value: 'All' },
+    ...[...new Set(notebooks.value.map(item => item.createTime?.slice(0, 4)).filter(Boolean))]
+      .sort().reverse().map(year => ({ label: year!, value: year! }))
+  ])
   const PAGE_SIZE = 40
 
   const yearVal = ref('All')
@@ -265,10 +269,6 @@
     isLoading.value = true
 
     try {
-      if (searchVal.value) {
-        yearVal.value = 'All'
-      }
-
       notebooks.value = await fetchGetAllSharedKnowledgeBasesForAdmin()
 
       let list = notebooks.value

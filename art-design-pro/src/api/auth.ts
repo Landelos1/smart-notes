@@ -47,6 +47,23 @@ export function fetchLogout() {
   })
 }
 
+export function fetchUserProfile() {
+  return request.get<Api.Auth.BackendUser>({ url: '/api/common/user/info' })
+}
+
+export function fetchUpdateUserProfile(params: {
+  username: string
+  realName: string
+  gender: number
+  birthDate: string | null
+}) {
+  return request.put<void>({ url: '/api/common/user/update', params })
+}
+
+export function fetchChangePassword(params: { currentPassword: string; newPassword: string }) {
+  return request.put<void>({ url: '/api/common/user/password', params })
+}
+
 /**
  * 获取用户信息
  * @returns 用户信息

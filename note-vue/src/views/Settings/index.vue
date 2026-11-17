@@ -205,7 +205,7 @@ async function handleSaveProfile() {
       username: profileForm.value.username,
       phone: profileForm.value.phone,
       gender: profileForm.value.gender,
-      birthDate: profileForm.value.birthDate ? new Date(profileForm.value.birthDate) : null,
+      birthDate: profileForm.value.birthDate || null,
       avatarUrl: profileForm.value.avatarUrl,
     }
     const r = await updateUserInfo(userInfo)

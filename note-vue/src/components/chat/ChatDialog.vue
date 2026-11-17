@@ -5,6 +5,7 @@ import { Send, Bot, User, Sparkles, Paperclip, Square, Upload as UploadIcon, Boo
 import { formatRelativeTime } from '@/utils/timeFormat'
 import type { Message } from '@/types/chat'
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import { extractChatAttachment } from '@/api/personalKnowledge'
 import { getNotebooks, createNote } from '@/api/notes'
 import FilePreviewModal from '@/components/common/FilePreviewModal.vue'
@@ -111,10 +112,6 @@ watch(() => props.messages, async () => {
 function handleSend() {
   if ((input.value.trim() || selectedFiles.value.length > 0) && !props.isLoading && !isUploading.value) {
     emit('send-message', input.value.trim())
-    input.value = ''
-    if (textareaRef.value) {
-      textareaRef.value.style.height = 'auto'
-    }
   }
 }
 
@@ -148,7 +145,7 @@ async function handleFileChange(e: Event) {
     const oversize = accepted.filter(file => file.size > 20 * 1024 * 1024)
     const supported = accepted.filter(file => file.size <= 20 * 1024 * 1024)
     selectedFiles.value = [...selectedFiles.value, ...supported]
-    supported.filter(file => file.type.startsWith('image/')).forEach(file => {
+    supported.filter(isImageFile).forEach(file => {
       imagePreviews.set(file, URL.createObjectURL(file))
     })
     if (oversize.length) await modal.warning(`${oversize.map(file => file.name).join('、')} 超过20MB，未加入附件`)
@@ -165,14 +162,26 @@ function removeSelectedFile(index: number) {
   }
 }
 
-function clearSelectedFiles() {
-  selectedFiles.value.forEach(file => {
+function clearSelectedFiles(files = selectedFiles.value.slice()) {
+  files.forEach(file => {
     const preview = imagePreviews.get(file)
     if (preview) URL.revokeObjectURL(preview)
     imagePreviews.delete(file)
   })
-  selectedFiles.value = []
+  selectedFiles.value = selectedFiles.value.filter(file => !files.includes(file))
   sessionFileContents.value.clear()
+}
+
+function clearSentDraft(content: string, files: File[]) {
+  if (input.value.trim() === content.trim()) {
+    input.value = ''
+    if (textareaRef.value) textareaRef.value.style.height = 'auto'
+  }
+  clearSelectedFiles(files)
+}
+
+function isImageFile(file: File) {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name)
 }
 
 function imagePreview(file: File) {
@@ -200,8 +209,8 @@ async function readFileContent(file: File): Promise<string> {
 }
 
 // 读取选中文件的内容（临时使用，不上传到知识库）
-async function readSelectedFilesContent() {
-  if (selectedFiles.value.length === 0) {
+async function readSelectedFilesContent(files = selectedFiles.value.slice()) {
+  if (files.length === 0) {
     return { success: true, fileContents: new Map<string, string>() }
   }
 
@@ -211,19 +220,22 @@ async function readSelectedFilesContent() {
   const failedFiles: string[] = []
 
   try {
-    for (let i = 0; i < selectedFiles.value.length; i++) {
-      const file = selectedFiles.value[i]
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      let label = file.name
+      let duplicate = 2
+      while (fileContents.has(label)) label = `${file.name} (${duplicate++})`
       try {
         const extension = file.name.split('.').pop()?.toLowerCase() || ''
-        if (file.type.startsWith('image/') || extension === 'pdf') {
+        if (isImageFile(file) || extension === 'pdf') {
           const result = await extractChatAttachment(file)
           if (result.code !== 0 || !result.data) throw new Error(result.message || '附件未提取到有效内容')
-          fileContents.set(file.name, result.data)
+          fileContents.set(label, result.data)
         } else if (file.type.startsWith('text/') || ['txt', 'md', 'markdown', 'json', 'xml', 'csv', 'log', 'yaml', 'yml'].includes(extension)) {
           const content = await readFileContent(file)
           if (!content.trim()) throw new Error('文件内容为空')
           if (content.length > 40000) throw new Error('文件文字超过4万字，请拆分后重试')
-          fileContents.set(file.name, content)
+          fileContents.set(label, content)
         } else {
           failedFiles.push(`${file.name}（暂不支持此格式）`)
         }
@@ -231,7 +243,7 @@ async function readSelectedFilesContent() {
         console.error(`读取文件 ${file.name} 失败:`, error)
         failedFiles.push(`${file.name}（${error instanceof Error ? error.message : '读取失败'}）`)
       }
-      uploadProgress.value = Math.round(((i + 1) / selectedFiles.value.length) * 100)
+      uploadProgress.value = Math.round(((i + 1) / files.length) * 100)
     }
 
     // 保存到会话临时存储
@@ -258,6 +270,7 @@ function setQuickInput(text: string) {
 defineExpose({
   readSelectedFilesContent,
   clearSelectedFiles,
+  clearSentDraft,
   attachmentPreview: (file: File) => imagePreviews.get(file) || undefined,
   selectedFiles,
   sessionFileContents
@@ -362,7 +375,7 @@ function renderMarkdown(content: string): string {
   // 3. 确保段落分隔：将两个及以上连续换行符规范化
   normalizedContent = normalizedContent.replace(/\n{2,}/g, '\n\n')
   
-  return marked(normalizedContent) as string
+  return DOMPurify.sanitize(marked(normalizedContent) as string)
 }
 </script>
 

@@ -167,13 +167,13 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public OrderVO queryOrderStatus(String orderNo) {
+    public OrderVO queryOrderStatus(String orderNo, Long requesterId, boolean admin) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getOrderNo, orderNo);
         Order order = orderMapper.selectOne(wrapper);
 
-        if (order == null) {
-            throw new BizException("订单不存在");
+        if (order == null || (!admin && !Objects.equals(order.getUserId(), requesterId))) {
+            throw new BizException("订单不存在或无权查看");
         }
 
         return convertToOrderVO(order);

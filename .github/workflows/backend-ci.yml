@@ -21,3 +21,5 @@ jobs:
           cache: maven
       - name: Compile and package backend
         run: mvn -B -f initialization-note-side/pom.xml -DskipTests package
+      - name: Run isolated security and recognition tests
+        run: mvn -B -f initialization-note-side/pom.xml -Dtest=UserProfileSecurityTest,StructuredNoteServiceTest test

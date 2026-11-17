@@ -25,9 +25,11 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
 
     @Select("""
         SELECT COUNT(ns.id)::text || ':' ||
-               COALESCE(MAX(GREATEST(COALESCE(ns.update_time, ns.publish_time), n.update_time))::text, '')
+               MD5(COALESCE(STRING_AGG(CONCAT_WS('|', n.id, n.title, nb.name,
+                   ns.summary, LEFT(n.content_md, 1200)), E'\n' ORDER BY n.id), ''))
         FROM t_note_square ns
         JOIN t_note n ON n.id = ns.note_id
+        LEFT JOIN t_notebook nb ON nb.id = n.notebook_id
         WHERE ns.status = 1
         """)
     String selectPublishedCategoryFingerprint();
@@ -40,7 +42,6 @@ public interface NoteSquareMapper extends BaseMapper<NoteSquare> {
         LEFT JOIN t_notebook nb ON nb.id = n.notebook_id
         WHERE ns.status = 1
         ORDER BY ns.publish_time DESC
-        LIMIT 100
         """)
     List<NoteSquareVO> selectPublishedCategoryCandidates();
 
