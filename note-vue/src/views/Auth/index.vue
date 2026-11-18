@@ -192,7 +192,7 @@ onMounted(() => {
           <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-600 shadow-md shadow-blue-600/25">
             <BookOpen class="h-6 w-6 text-white" />
           </div>
-          <span class="text-xl font-semibold tracking-tight text-gray-900">知识库管理系统</span>
+          <span class="text-xl font-semibold tracking-tight text-gray-900">智能笔记系统</span>
         </div>
 
         <!-- 标语 -->
@@ -234,7 +234,7 @@ onMounted(() => {
           <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-md shadow-blue-600/25">
             <BookOpen class="h-5 w-5 text-white" />
           </div>
-          <span class="text-lg font-semibold tracking-tight text-gray-900">知识库管理系统</span>
+          <span class="text-lg font-semibold tracking-tight text-gray-900">智能笔记系统</span>
         </div>
 
         <!-- 表单卡片 -->
